@@ -4,13 +4,18 @@ from discord.ext import commands
 import json
 import os
 
-TOKEN = "MTMzMTI5OTg2MjE0NjMxODM0Nw.G705oX.x8NU9RdOWnXKFh0gFJoGnhaH6BHYe26nNFc52E"
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!" , intents=intents)
+class MyClient(discord.Client):
+    def __init__(self):
+        super().__init__(intents=intents)
+        self.tree = app_commands.CommandTree(self)
+
+bot = MyClient()
 tree = bot.tree
 
 # === Databáze ===
@@ -41,7 +46,7 @@ def get_or_create_user(user_id):
 
 @bot.event
 async def on_ready():
-    await tree.sync()
+    await bot.tree.sync()
     print(f"✅ Bot je online jako {bot.user}")
 
 # === SLASH PŘÍKAZY ===
