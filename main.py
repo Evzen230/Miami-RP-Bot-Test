@@ -195,7 +195,7 @@ class ConfirmationView(discord.ui.View):
         if interaction.user.id != self.kupec.id:
             await interaction.response.send_message("❌ Pouze kupující může potvrdit nákup.", ephemeral=True)
             return
-        
+
         self.result = True
         self.stop()
         await interaction.response.edit_message(content=f"✅ {self.kupec.display_name} potvrdil nákup!", view=None)
@@ -205,7 +205,7 @@ class ConfirmationView(discord.ui.View):
         if interaction.user.id not in [self.kupec.id, self.prodavajici.id]:
             await interaction.response.send_message("❌ Pouze kupující nebo prodávající může zrušit obchod.", ephemeral=True)
             return
-        
+
         self.result = False
         self.stop()
         await interaction.response.edit_message(content=f"❌ Obchod byl zrušen.", view=None)
@@ -220,7 +220,7 @@ def get_or_create_user(user_id):
     else:
         # Convert old list format to new dict format and ensure all money fields exist
         data = databaze[user_id]
-        
+
         # Ensure all money fields exist
         if "penize" not in data:
             data["penize"] = 0
@@ -228,7 +228,7 @@ def get_or_create_user(user_id):
             data["hotovost"] = 0
         if "bank" not in data:
             data["bank"] = 0
-        
+
         if isinstance(data.get("auta"), list):
             # Convert list to dict with counts
             auta_dict = {}
@@ -238,7 +238,7 @@ def get_or_create_user(user_id):
                 else:
                     auta_dict[auto] = 1
             data["auta"] = auta_dict
-        
+
         if isinstance(data.get("zbrane"), list):
             # Convert list to dict with counts
             zbrane_dict = {}
@@ -248,8 +248,14 @@ def get_or_create_user(user_id):
                 else:
                     zbrane_dict[zbran] = 1
             data["zbrane"] = zbrane_dict
-            
+
+    # Update total money
+    data["penize"] = data["hotovost"] + data["bank"]
+
     return databaze[user_id]
+
+def get_total_money(data):
+    return data.get("hotovost", 0) + data.get("bank", 0)
 
 
 # === PŘIPOJENÍ ===
@@ -482,7 +488,8 @@ async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Memb
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
     data = get_or_create_user(uzivatel.id)
-    data["penize"] += castka
+    data["hotovost"] += castka # Automatically adds to hotovost
+    data["penize"] = data["hotovost"] + data["bank"]  # Update total money
     save_data()
     await interaction.response.send_message(f"✅ Přidáno {castka}$ hráči {uzivatel.display_name}.")
 
@@ -495,9 +502,18 @@ async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Memb
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
     data = get_or_create_user(uzivatel.id)
-    data["penize"] -= castka
-    if data["penize"] < 0:
-        data["penize"] = 0
+
+    # Remove from hotovost first, then bank
+    if data["hotovost"] >= castka:
+        data["hotovost"] -= castka
+    else:
+        remaining = castka - data["hotovost"]
+        data["hotovost"] = 0
+        data["bank"] -= remaining
+        if data["bank"] < 0:
+            data["bank"] = 0
+
+    data["penize"] = data["hotovost"] + data["bank"]
     save_data()
     await interaction.response.send_message(f"✅ Odebráno {castka}$ hráči {uzivatel.display_name}.")
 
@@ -511,6 +527,8 @@ async def reset_penize(interaction: discord.Interaction, uzivatel: discord.Membe
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
     data = get_or_create_user(uzivatel.id)
+    data["hotovost"] = 0
+    data["bank"] = 0
     data["penize"] = 0
     save_data()
     await interaction.response.send_message(f"♻️ Peníze hráče {uzivatel.display_name} byly vynulovány.")
@@ -525,11 +543,28 @@ async def posli_penize(interaction: discord.Interaction, cil: discord.Member, ca
         return
     odesilatel_data = get_or_create_user(interaction.user.id)
     prijemce_data = get_or_create_user(cil.id)
-    if odesilatel_data["penize"] < castka:
+
+    total_money_odesilatel = get_total_money(odesilatel_data)
+    if total_money_odesilatel < castka:
         await interaction.response.send_message("❌ Nemáš dostatek peněz.", ephemeral=True)
         return
-    odesilatel_data["penize"] -= castka
-    prijemce_data["penize"] += castka
+
+    # Remove money from sender (hotovost first, then bank)
+    remaining_to_remove = castka
+    if odesilatel_data["hotovost"] >= remaining_to_remove:
+        odesilatel_data["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= odesilatel_data["hotovost"]
+        odesilatel_data["hotovost"] = 0
+        odesilatel_data["bank"] -= remaining_to_remove
+
+    # Add money to receiver's hotovost
+    prijemce_data["hotovost"] += castka
+
+    # Update total money for both users
+    odesilatel_data["penize"] = odesilatel_data["hotovost"] + odesilatel_data["bank"]
+    prijemce_data["penize"] = prijemce_data["hotovost"] + prijemce_data["bank"]
+
     save_data()
     await interaction.response.send_message(f"💸 Poslal jsi {castka}$ hráči {cil.display_name}.")
 # Kup auto command
@@ -545,12 +580,22 @@ async def kup_auto(interaction: discord.Interaction, auto: str, pocet: int = 1):
             return
 
         cena = CENY_AUT[auto] * pocet
-        if data["penize"] < cena:
+        total_money = get_total_money(data)
+        if total_money < cena:
             await interaction.response.send_message(f"❌ Nemáš dostatek peněz. Potřebuješ {cena}$.", ephemeral=True)
             return
 
-        # odečtení peněz a přidání auta
-        data["penize"] -= cena
+         # Remove money from buyer (hotovost first, then bank)
+        remaining_to_remove = cena
+        if data["hotovost"] >= remaining_to_remove:
+            data["hotovost"] -= remaining_to_remove
+        else:
+            remaining_to_remove -= data["hotovost"]
+            data["hotovost"] = 0
+            data["bank"] -= remaining_to_remove
+        
+        data["penize"] = data["hotovost"] + data["bank"]
+
         if auto in data["auta"]:
             data["auta"][auto] += pocet
         else:
@@ -591,7 +636,8 @@ async def prodat_auto(interaction: discord.Interaction, auto: str, pocet: int = 
         del data["auta"][auto]
 
     # Přidej peníze
-    data["penize"] = data.get("penize", 0) + celkova_cena
+    data["hotovost"] = data.get("hotovost", 0) + celkova_cena
+    data["penize"] = data["hotovost"] + data["bank"]
 
     save_data()
     await interaction.response.send_message(f"✅ Prodáno {pocet}x `{auto}` za {celkova_cena:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
@@ -626,7 +672,8 @@ async def prodat_zbran(interaction: discord.Interaction, zbran: str, pocet: int 
         del data["zbrane"][zbran]
 
     # Přidej peníze
-    data["penize"] = data.get("penize", 0) + celkova_cena
+    data["hotovost"] = data.get("hotovost", 0) + celkova_cena
+    data["penize"] = data["hotovost"] + data["bank"]
 
     save_data()
     await interaction.response.send_message(f"✅ Prodáno {pocet}x `{zbran}` za {cena_za_kus:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
@@ -650,12 +697,21 @@ async def koupit_zbran(interaction: discord.Interaction, zbran: str, pocet: int 
     cena_za_kus = CENY_ZBRANI[zbran]
     celkova_cena = cena_za_kus * pocet
 
-    if data.get("penize", 0) < celkova_cena:
-        await interaction.response.send_message(f"❌ Nemáš dostatek peněz ({data.get('penize', 0):,}$) na koupi {pocet}x `{zbran}` (potřebuješ {celkova_cena:,}$).", ephemeral=True)
+    total_money = get_total_money(data)
+    if total_money < celkova_cena:
+        await interaction.response.send_message(f"❌ Nemáš dostatek peněz ({total_money:,}$) na koupi {pocet}x `{zbran}` (potřebuješ {celkova_cena:,}$).", ephemeral=True)
         return
 
-    # Odečti peníze
-    data["penize"] -= celkova_cena
+    # Remove money from buyer (hotovost first, then bank)
+    remaining_to_remove = celkova_cena
+    if data["hotovost"] >= remaining_to_remove:
+        data["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= data["hotovost"]
+        data["hotovost"] = 0
+        data["bank"] -= remaining_to_remove
+
+    data["penize"] = data["hotovost"] + data["bank"]
 
     # Přidej zbraň
     if zbran in data["zbrane"]:
@@ -683,25 +739,26 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
     if prodavajici_data["auta"][auto] <= 0:
         await interaction.response.send_message("❌ Nemáš žádné kusy tohoto auta.", ephemeral=True)
         return
-    if kupec_data["penize"] < cena:
+    total_money_kupec = get_total_money(kupec_data)
+    if total_money_kupec < cena:
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
     # Create confirmation view
     view = ConfirmationView(interaction.user, kupec, auto, "auto", cena)
-    
+
     embed = discord.Embed(
         title="🚗 Potvrzení nákupu auta",
         description=f"**Prodávající:** {interaction.user.display_name}\n**Kupující:** {kupec.display_name}\n**Auto:** {auto}\n**Cena:** {cena:,}$",
         color=discord.Color.orange()
     )
     embed.add_field(name="⏰ Čekám na potvrzení", value=f"{kupec.mention}, potvrď prosím nákup kliknutím na tlačítko níže.", inline=False)
-    
+
     await interaction.response.send_message(embed=embed, view=view)
-    
+
     # Wait for confirmation
     await view.wait()
-    
+
     if view.result is True:
         # Proceed with the sale
         prodavajici_data["auta"][auto] -= 1
@@ -709,11 +766,24 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
             del prodavajici_data["auta"][auto]
         kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
 
-        kupec_data["penize"] -= cena
-        prodavajici_data["penize"] += cena
+        # Remove money from buyer (hotovost first, then bank)
+        remaining_to_remove = cena
+        if kupec_data["hotovost"] >= remaining_to_remove:
+            kupec_data["hotovost"] -= remaining_to_remove
+        else:
+            remaining_to_remove -= kupec_data["hotovost"]
+            kupec_data["hotovost"] = 0
+            kupec_data["bank"] -= remaining_to_remove
+
+        # Add money to seller's hotovost
+        prodavajici_data["hotovost"] += cena
+
+        # Update total money
+        kupec_data["penize"] = kupec_data["hotovost"] + kupec_data["bank"]
+        prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
 
         save_data()
-        
+
         success_embed = discord.Embed(
             title="✅ Obchod dokončen!",
             description=f"Auto `{auto}` bylo úspěšně prodáno {kupec.display_name} za {cena:,}$.",
@@ -740,25 +810,26 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
     if prodavajici_data["zbrane"][zbran] <= 0:
         await interaction.response.send_message("❌ Nemáš žádné kusy této zbraně.", ephemeral=True)
         return
-    if kupec_data["penize"] < cena:
+    total_money_kupec = get_total_money(kupec_data)
+    if total_money_kupec < cena:
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
     # Create confirmation view
     view = ConfirmationView(interaction.user, kupec, zbran, "zbran", cena)
-    
+
     embed = discord.Embed(
         title="🔫 Potvrzení nákupu zbraně",
         description=f"**Prodávající:** {interaction.user.display_name}\n**Kupující:** {kupec.display_name}\n**Zbraň:** {zbran}\n**Cena:** {cena:,}$",
         color=discord.Color.orange()
     )
     embed.add_field(name="⏰ Čekám na potvrzení", value=f"{kupec.mention}, potvrď prosím nákup kliknutím na tlačítko níže.", inline=False)
-    
+
     await interaction.response.send_message(embed=embed, view=view)
-    
+
     # Wait for confirmation
     await view.wait()
-    
+
     if view.result is True:
         # Proceed with the sale
         prodavajici_data["zbrane"][zbran] -= 1
@@ -766,11 +837,24 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
             del prodavajici_data["zbrane"][zbran]
         kupec_data["zbrane"][zbran] = kupec_data["zbrane"].get(zbran, 0) + 1
 
-        kupec_data["penize"] -= cena
-        prodavajici_data["penize"] += cena
+        # Remove money from buyer (hotovost first, then bank)
+        remaining_to_remove = cena
+        if kupec_data["hotovost"] >= remaining_to_remove:
+            kupec_data["hotovost"] -= remaining_to_remove
+        else:
+            remaining_to_remove -= kupec_data["hotovost"]
+            kupec_data["hotovost"] = 0
+            kupec_data["bank"] -= remaining_to_remove
+
+        # Add money to seller's hotovost
+        prodavajici_data["hotovost"] += cena
+
+        # Update total money
+        kupec_data["penize"] = kupec_data["hotovost"] + kupec_data["bank"]
+        prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
 
         save_data()
-        
+
         success_embed = discord.Embed(
             title="✅ Obchod dokončen!",
             description=f"Zbraň `{zbran}` byla úspěšně prodána {kupec.display_name} za {cena:,}$.",
@@ -794,12 +878,13 @@ async def vybrat(interaction: discord.Interaction, castka: int):
 
     data = get_or_create_user(interaction.user.id)
 
-    if data.get("banka", 0) < castka:
+    if data.get("bank", 0) < castka:
         await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
         return
 
-    data["banka"] -= castka
+    data["bank"] -= castka
     data["hotovost"] += castka
+    data["penize"] = data["hotovost"] + data["bank"]
     save_data()
 
     await interaction.response.send_message(f"✅ Vybral jsi {castka:,} $ z banky do peněženky.")
@@ -819,7 +904,8 @@ async def vlozit(interaction: discord.Interaction, castka: int):
         return
 
     data["hotovost"] -= castka
-    data["banka"] += castka
+    data["bank"] += castka
+    data["penize"] = data["hotovost"] + data["bank"]
     save_data()
 
     await interaction.response.send_message(f"✅ Vložil jsi {castka:,} $ z peněženky do banky.")
