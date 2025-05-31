@@ -3,6 +3,7 @@ from discord import app_commands
 import json
 import os
 from discord.ext import commands
+import asyncio
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
@@ -179,17 +180,54 @@ def save_data():
         json.dump(databaze, f, indent=4)
 
 
+class ConfirmationView(discord.ui.View):
+    def __init__(self, prodavajici, kupec, item, item_type, cena):
+        super().__init__(timeout=60.0)
+        self.prodavajici = prodavajici
+        self.kupec = kupec
+        self.item = item
+        self.item_type = item_type
+        self.cena = cena
+        self.result = None
+
+    @discord.ui.button(label='✅ Potvrdit nákup', style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.kupec.id:
+            await interaction.response.send_message("❌ Pouze kupující může potvrdit nákup.", ephemeral=True)
+            return
+        
+        self.result = True
+        self.stop()
+        await interaction.response.edit_message(content=f"✅ {self.kupec.display_name} potvrdil nákup!", view=None)
+
+    @discord.ui.button(label='❌ Zrušit', style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id not in [self.kupec.id, self.prodavajici.id]:
+            await interaction.response.send_message("❌ Pouze kupující nebo prodávající může zrušit obchod.", ephemeral=True)
+            return
+        
+        self.result = False
+        self.stop()
+        await interaction.response.edit_message(content=f"❌ Obchod byl zrušen.", view=None)
+
+    async def on_timeout(self):
+        self.result = False
+
 def get_or_create_user(user_id):
     user_id = str(user_id)
     if user_id not in databaze:
-        databaze[user_id] = {"auta": {}, "zbrane": {}, "penize": 0}
+        databaze[user_id] = {"auta": {}, "zbrane": {}, "penize": 0, "hotovost": 0, "bank": 0}
     else:
-        # Convert old list format to new dict format and ensure penize field exists
+        # Convert old list format to new dict format and ensure all money fields exist
         data = databaze[user_id]
         
-        # Ensure penize field exists
+        # Ensure all money fields exist
         if "penize" not in data:
             data["penize"] = 0
+        if "hotovost" not in data:
+            data["hotovost"] = 0
+        if "bank" not in data:
+            data["bank"] = 0
         
         if isinstance(data.get("auta"), list):
             # Convert list to dict with counts
@@ -422,12 +460,16 @@ async def balance(interaction: discord.Interaction, uzivatel: discord.Member = N
     data = get_or_create_user(uzivatel.id)
 
     penize = data.get("penize", 0)
+    hotovost = data.get("hotovost", 0)
+    bank = data.get("bank", 0)
 
     embed = discord.Embed(
         title=f"💰 Finanční přehled pro {uzivatel.display_name}",
         color=discord.Color.gold()
     )
     embed.add_field(name="💵 Peníze", value=f"{penize:,} $", inline=False)
+    embed.add_field(name="💳 Hotovost", value=f"{hotovost:,} $", inline=True)
+    embed.add_field(name="🏦 Banka", value=f"{bank:,} $", inline=True)
 
     await interaction.response.send_message(embed=embed)
 
@@ -645,17 +687,46 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
-    # Převod
-    prodavajici_data["auta"][auto] -= 1
-    if prodavajici_data["auta"][auto] == 0:
-        del prodavajici_data["auta"][auto]
-    kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
+    # Create confirmation view
+    view = ConfirmationView(interaction.user, kupec, auto, "auto", cena)
+    
+    embed = discord.Embed(
+        title="🚗 Potvrzení nákupu auta",
+        description=f"**Prodávající:** {interaction.user.display_name}\n**Kupující:** {kupec.display_name}\n**Auto:** {auto}\n**Cena:** {cena:,}$",
+        color=discord.Color.orange()
+    )
+    embed.add_field(name="⏰ Čekám na potvrzení", value=f"{kupec.mention}, potvrď prosím nákup kliknutím na tlačítko níže.", inline=False)
+    
+    await interaction.response.send_message(embed=embed, view=view)
+    
+    # Wait for confirmation
+    await view.wait()
+    
+    if view.result is True:
+        # Proceed with the sale
+        prodavajici_data["auta"][auto] -= 1
+        if prodavajici_data["auta"][auto] == 0:
+            del prodavajici_data["auta"][auto]
+        kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
 
-    kupec_data["penize"] -= cena
-    prodavajici_data["penize"] += cena
+        kupec_data["penize"] -= cena
+        prodavajici_data["penize"] += cena
 
-    save_data()
-    await interaction.response.send_message(f"✅ Auto `{auto}` bylo prodáno {kupec.display_name} za {cena}$.")
+        save_data()
+        
+        success_embed = discord.Embed(
+            title="✅ Obchod dokončen!",
+            description=f"Auto `{auto}` bylo úspěšně prodáno {kupec.display_name} za {cena:,}$.",
+            color=discord.Color.green()
+        )
+        await interaction.followup.send(embed=success_embed)
+    elif view.result is False:
+        fail_embed = discord.Embed(
+            title="❌ Obchod zrušen",
+            description="Obchod byl zrušen nebo vypršel čas na potvrzení.",
+            color=discord.Color.red()
+        )
+        await interaction.followup.send(embed=fail_embed)
 
 @tree.command(name="prodej-zbran", description="Prodá zbraň jinému hráči")
 @app_commands.describe(kupec="Komu prodáváš zbraň", zbran="Jakou zbraň prodáváš", cena="Cena za zbraň")
@@ -673,17 +744,46 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
-    # Převod
-    prodavajici_data["zbrane"][zbran] -= 1
-    if prodavajici_data["zbrane"][zbran] == 0:
-        del prodavajici_data["zbrane"][zbran]
-    kupec_data["zbrane"][zbran] = kupec_data["zbrane"].get(zbran, 0) + 1
+    # Create confirmation view
+    view = ConfirmationView(interaction.user, kupec, zbran, "zbran", cena)
+    
+    embed = discord.Embed(
+        title="🔫 Potvrzení nákupu zbraně",
+        description=f"**Prodávající:** {interaction.user.display_name}\n**Kupující:** {kupec.display_name}\n**Zbraň:** {zbran}\n**Cena:** {cena:,}$",
+        color=discord.Color.orange()
+    )
+    embed.add_field(name="⏰ Čekám na potvrzení", value=f"{kupec.mention}, potvrď prosím nákup kliknutím na tlačítko níže.", inline=False)
+    
+    await interaction.response.send_message(embed=embed, view=view)
+    
+    # Wait for confirmation
+    await view.wait()
+    
+    if view.result is True:
+        # Proceed with the sale
+        prodavajici_data["zbrane"][zbran] -= 1
+        if prodavajici_data["zbrane"][zbran] == 0:
+            del prodavajici_data["zbrane"][zbran]
+        kupec_data["zbrane"][zbran] = kupec_data["zbrane"].get(zbran, 0) + 1
 
-    kupec_data["penize"] -= cena
-    prodavajici_data["penize"] += cena
+        kupec_data["penize"] -= cena
+        prodavajici_data["penize"] += cena
 
-    save_data()
-    await interaction.response.send_message(f"✅ Zbraň `{zbran}` byla prodána {kupec.display_name} za {cena}$.")
+        save_data()
+        
+        success_embed = discord.Embed(
+            title="✅ Obchod dokončen!",
+            description=f"Zbraň `{zbran}` byla úspěšně prodána {kupec.display_name} za {cena:,}$.",
+            color=discord.Color.green()
+        )
+        await interaction.followup.send(embed=success_embed)
+    elif view.result is False:
+        fail_embed = discord.Embed(
+            title="❌ Obchod zrušen",
+            description="Obchod byl zrušen nebo vypršel čas na potvrzení.",
+            color=discord.Color.red()
+        )
+        await interaction.followup.send(embed=fail_embed)
 
 
 bot.run(TOKEN)
