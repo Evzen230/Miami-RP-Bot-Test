@@ -6,7 +6,8 @@
         },
         "zbrane": {
             "Lemat Revolver": 1
-        }
+        },
+        "penize": 1099999000
     },
     "1331299862146318347": {
         "auta": [
@@ -17,10 +18,10 @@
         "zbrane": []
     },
     "792820515491282965": {
-        "auta": [
-            "Bullhorn Prancer Widebody 2020",
-            "Bullhorn Prancer Widebody 2020"
-        ],
-        "zbrane": []
+        "auta": {
+            "Bullhorn Prancer Widebody 2020": 2
+        },
+        "zbrane": {},
+        "penize": 1000
     }
 }

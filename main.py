@@ -114,7 +114,7 @@ CENY_AUT = {
     "Terrain Traveller 2022": 180000,
     "Averon Q8 2022": 220000,
     "BKM Munich 2020": 185000,
-    "Stuttgart Vierturig: 2021": 100000,  # Neurčena cena
+    "Stuttgart Vierturig: 2021": 250000,  # Neurčena cena
     "Takeo Experience 2021": 550000,
     "Averon R8 2017": 800000,
     "Strugatti Ettore 2020": 1200000,
@@ -132,7 +132,29 @@ CENY_AUT = {
     "Celestial Truckatron 2024": 800000,
     "BKM Risen Roadster 2020": 650000
 }
+CENY_ZBRANI = {
+    # Zbraně typu A:
+    "Beretta M9": 700, 
+    "Desert Eagle": 900, 
+    "Colt M1911": 750, 
+    "Colt Python": 1000, 
 
+    # Zbraně typu B:
+    "TEC-9": 1000,
+    "Skorpion": 1100,
+    "Kriss Vector": 1500, 
+
+    #Zbraně typu C:
+    "M14": 2000,
+    "AK47": 2500, 
+    "PPSH 41": 2300, 
+    "LMT L129A1": 2600, 
+    "Remington 870": 2000, 
+
+    #Zbraně typu D:
+    "Remington MSR": 15000, 
+    "M249":  12000 
+}
 DOSTUPNE_ZBRANE = [
     "Beretta M9", "M249", "Remington MSR", "M14", "AK47", "PPSH 41",
     "Desert Eagle", "Colt M1911", "Kriss Vector", "LMT L129A1", "Skorpion",
@@ -393,13 +415,25 @@ async def reset_inventory(interaction: discord.Interaction, uzivatel: discord.Me
 
 # Balance command
 
-@tree.command(name="balance", description="Zobrazí zůstatek peněz")
-@app_commands.describe(uzivatel="Uživatel, jehož zůstatek chceš zjistit (nepovinné)")
+@tree.command(name="balance", description="Zobrazí finanční stav (hotovost a banka)")
+@app_commands.describe(uzivatel="(Volitelné) Uživatel, jehož stav chceš zobrazit")
 async def balance(interaction: discord.Interaction, uzivatel: discord.Member = None):
-    if uzivatel is None:
-        uzivatel = interaction.user
+    uzivatel = uzivatel or interaction.user
     data = get_or_create_user(uzivatel.id)
-    await interaction.response.send_message(f"💵 {uzivatel.display_name} má {data['penize']}$.")
+
+    hotovost = data.get("hotovost", 0)
+    banka = data.get("banka", 0)
+    celkem = hotovost + banka
+
+    embed = discord.Embed(
+        title=f"💰 Finanční přehled pro {uzivatel.display_name}",
+        color=discord.Color.gold()
+    )
+    embed.add_field(name="👜 Peněženka", value=f"{hotovost:,} $", inline=True)
+    embed.add_field(name="🏦 Banka", value=f"{banka:,} $", inline=True)
+    embed.add_field(name="💵 Celkem", value=f"{celkem:,} $", inline=False)
+
+    await interaction.response.send_message(embed=embed)
 
 # Pridej penize command
 @tree.command(name="pridej-penize", description="Přidá peníze hráči (admin)")
@@ -493,5 +527,195 @@ async def autocomplete_kup_auto(interaction: discord.Interaction, current: str):
         app_commands.Choice(name=a, value=a)
         for a in CENY_AUT.keys() if current.lower() in a.lower()
     ][:25]
+
+# Kup zbran command
+# --- Prodat auto ---
+
+@tree.command(name="prodat-auto", description="Prodej auto za cenu z nabídky")
+@app_commands.describe(auto="Auto, které chceš prodat", pocet="Počet kusů k prodeji")
+async def prodat_auto(interaction: discord.Interaction, auto: str, pocet: int = 1):
+    uzivatel = interaction.user
+    data = get_or_create_user(uzivatel.id)
+
+    if auto not in data["auta"] or data["auta"][auto] < pocet:
+        await interaction.response.send_message(f"❌ Nemáš dostatek aut `{auto}` k prodeji.", ephemeral=True)
+        return
+    if auto not in CENY_AUT:
+        await interaction.response.send_message(f"❌ Auto `{auto}` není možné prodat.", ephemeral=True)
+        return
+
+    cena_za_kus = CENY_AUT[auto]
+    celkova_cena = cena_za_kus * pocet
+
+    # Odeber auto
+    data["auta"][auto] -= pocet
+    if data["auta"][auto] <= 0:
+        del data["auta"][auto]
+
+    # Přidej peníze
+    data["penize"] = data.get("penize", 0) + celkova_cena
+
+    save_data()
+    await interaction.response.send_message(f"✅ Prodáno {pocet}x `{auto}` za {celkova_cena:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
+
+@prodat_auto.autocomplete("auto")
+async def autocomplete_prodat_auto(interaction: discord.Interaction, current: str):
+    data = get_or_create_user(interaction.user.id)
+    auta = data.get("auta", {})
+    return [app_commands.Choice(name=a, value=a) for a in auta if current.lower() in a.lower()][:25]
+
+# --- Prodat zbraň ---
+
+@tree.command(name="prodat-zbran", description="Prodej zbraň za cenu z nabídky")
+@app_commands.describe(zbran="Zbraň, kterou chceš prodat", pocet="Počet kusů k prodeji")
+async def prodat_zbran(interaction: discord.Interaction, zbran: str, pocet: int = 1):
+    uzivatel = interaction.user
+    data = get_or_create_user(uzivatel.id)
+
+    if zbran not in data["zbrane"] or data["zbrane"][zbran] < pocet:
+        await interaction.response.send_message(f"❌ Nemáš dostatek zbraní `{zbran}` k prodeji.", ephemeral=True)
+        return
+    if zbran not in CENY_ZBRANI:
+        await interaction.response.send_message(f"❌ Zbraň `{zbran}` není možné prodat.", ephemeral=True)
+        return
+
+    cena_za_kus = CENY_ZBRANI[zbran]
+    celkova_cena = cena_za_kus * pocet
+
+    # Odeber zbraň
+    data["zbrane"][zbran] -= pocet
+    if data["zbrane"][zbran] <= 0:
+        del data["zbrane"][zbran]
+
+    # Přidej peníze
+    data["penize"] = data.get("penize", 0) + celkova_cena
+
+    save_data()
+    await interaction.response.send_message(f"✅ Prodáno {pocet}x `{zbran}` za {cena_za_kus:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
+
+@prodat_zbran.autocomplete("zbran")
+async def autocomplete_prodat_zbran(interaction: discord.Interaction, current: str):
+    data = get_or_create_user(interaction.user.id)
+    zbrane = data.get("zbrane", {})
+    return [app_commands.Choice(name=z, value=z) for z in zbrane if current.lower() in z.lower()][:25]
+
+@tree.command(name="koupit-zbran", description="Koupit zbraň z nabídky")
+@app_commands.describe(zbran="Zbraň, kterou chceš koupit", pocet="Počet kusů")
+async def koupit_zbran(interaction: discord.Interaction, zbran: str, pocet: int = 1):
+    uzivatel = interaction.user
+    data = get_or_create_user(uzivatel.id)
+
+    if zbran not in CENY_ZBRANI:
+        await interaction.response.send_message(f"❌ Zbraň `{zbran}` není v nabídce k prodeji.", ephemeral=True)
+        return
+
+    cena_za_kus = CENY_ZBRANI[zbran]
+    celkova_cena = cena_za_kus * pocet
+
+    if data.get("penize", 0) < celkova_cena:
+        await interaction.response.send_message(f"❌ Nemáš dostatek peněz ({data.get('penize', 0):,}$) na koupi {pocet}x `{zbran}` (potřebuješ {celkova_cena:,}$).", ephemeral=True)
+        return
+
+    # Odečti peníze
+    data["penize"] -= celkova_cena
+
+    # Přidej zbraň
+    if zbran in data["zbrane"]:
+        data["zbrane"][zbran] += pocet
+    else:
+        data["zbrane"][zbran] = pocet
+
+    save_data()
+    await interaction.response.send_message(f"✅ Koupil jsi {pocet}x `{zbran}` za {celkova_cena:,}$. Zůstatek: {data['penize']:,}$.")
+
+@koupit_zbran.autocomplete("zbran")
+async def autocomplete_koupit_zbran(interaction: discord.Interaction, current: str):
+    return [app_commands.Choice(name=z, value=z) for z in CENY_ZBRANI if current.lower() in z.lower()][:25]
+
+@tree.command(name="vloz", description="Vloží peníze z hotovosti do banky")
+@app_commands.describe(castka="Částka, kterou chceš vložit")
+async def vloz(interaction: discord.Interaction, castka: int):
+    data = get_or_create_user(interaction.user.id)
+    if castka <= 0:
+        await interaction.response.send_message("❌ Zadej kladnou částku.", ephemeral=True)
+        return
+    if data["hotovost"] < castka:
+        await interaction.response.send_message("❌ Nemáš dostatek hotovosti.", ephemeral=True)
+        return
+    data["hotovost"] -= castka
+    data["banka"] += castka
+    save_data()
+    await interaction.response.send_message(f"💰 Vloženo {castka}$ do banky.")
+
+@tree.command(name="vyber", description="Vybere peníze z banky do hotovosti")
+@app_commands.describe(castka="Částka, kterou chceš vybrat")
+async def vyber(interaction: discord.Interaction, castka: int):
+    data = get_or_create_user(interaction.user.id)
+    if castka <= 0:
+        await interaction.response.send_message("❌ Zadej kladnou částku.", ephemeral=True)
+        return
+    if data["banka"] < castka:
+        await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
+        return
+    data["banka"] -= castka
+    data["hotovost"] += castka
+    save_data()
+    await interaction.response.send_message(f"💸 Vybráno {castka}$ z banky.")
+@tree.command(name="prodej-auto", description="Prodá auto jinému hráči")
+@app_commands.describe(kupec="Komu prodáváš auto", auto="Jaké auto prodáváš", cena="Cena za auto")
+async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, auto: str, cena: int):
+    prodavajici_data = get_or_create_user(interaction.user.id)
+    kupec_data = get_or_create_user(kupec.id)
+
+    if auto not in prodavajici_data["auta"]:
+        await interaction.response.send_message("❌ Nemáš toto auto v inventáři.", ephemeral=True)
+        return
+    if prodavajici_data["auta"][auto] <= 0:
+        await interaction.response.send_message("❌ Nemáš žádné kusy tohoto auta.", ephemeral=True)
+        return
+    if kupec_data["hotovost"] < cena:
+        await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
+        return
+
+    # Převod
+    prodavajici_data["auta"][auto] -= 1
+    if prodavajici_data["auta"][auto] == 0:
+        del prodavajici_data["auta"][auto]
+    kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
+
+    kupec_data["hotovost"] -= cena
+    prodavajici_data["hotovost"] += cena
+
+    save_data()
+    await interaction.response.send_message(f"✅ Auto `{auto}` bylo prodáno {kupec.display_name} za {cena}$.")
+
+@tree.command(name="prodej-zbran", description="Prodá zbraň jinému hráči")
+@app_commands.describe(kupec="Komu prodáváš zbraň", zbran="Jakou zbraň prodáváš", cena="Cena za zbraň")
+async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, zbran: str, cena: int):
+    prodavajici_data = get_or_create_user(interaction.user.id)
+    kupec_data = get_or_create_user(kupec.id)
+
+    if zbran not in prodavajici_data["zbrane"]:
+        await interaction.response.send_message("❌ Nemáš tuto zbraň v inventáři.", ephemeral=True)
+        return
+    if prodavajici_data["zbrane"][zbran] <= 0:
+        await interaction.response.send_message("❌ Nemáš žádné kusy této zbraně.", ephemeral=True)
+        return
+    if kupec_data["hotovost"] < cena:
+        await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
+        return
+
+    # Převod
+    prodavajici_data["zbrane"][zbran] -= 1
+    if prodavajici_data["zbrane"][zbran] == 0:
+        del prodavajici_data["zbrane"][zbran]
+    kupec_data["zbrane"][zbran] = kupec_data["zbrane"].get(zbran, 0) + 1
+
+    kupec_data["hotovost"] -= cena
+    prodavajici_data["hotovost"] += cena
+
+    save_data()
+    await interaction.response.send_message(f"✅ Zbraň `{zbran}` byla prodána {kupec.display_name} za {cena}$.")
+
 
 bot.run(TOKEN)
