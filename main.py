@@ -495,27 +495,41 @@ async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Memb
 
 # Odeber penize command
 @tree.command(name="odeber-penize", description="Odebere peníze hráči (admin)")
-@app_commands.describe(uzivatel="Uživatel, kterému chceš odebrat peníze", castka="Kolik peněz chceš odebrat")
-async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: int):
+@app_commands.describe(uzivatel="Uživatel, kterému chceš odebrat peníze", castka="Kolik peněz chceš odebrat (nebo 'all' pro všechny)")
+async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: str):
     role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
     data = get_or_create_user(uzivatel.id)
 
-    # Remove from hotovost first, then bank
-    if data["hotovost"] >= castka:
-        data["hotovost"] -= castka
-    else:
-        remaining = castka - data["hotovost"]
+    if castka.lower() == "all":
+        actual_castka = data["hotovost"] + data["bank"]
         data["hotovost"] = 0
-        data["bank"] -= remaining
-        if data["bank"] < 0:
-            data["bank"] = 0
+        data["bank"] = 0
+    else:
+        try:
+            actual_castka = int(castka)
+            if actual_castka <= 0:
+                await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Neplatná částka. Použij číslo nebo 'all'.", ephemeral=True)
+            return
+
+        # Remove from hotovost first, then bank
+        if data["hotovost"] >= actual_castka:
+            data["hotovost"] -= actual_castka
+        else:
+            remaining = actual_castka - data["hotovost"]
+            data["hotovost"] = 0
+            data["bank"] -= remaining
+            if data["bank"] < 0:
+                data["bank"] = 0
 
     data["penize"] = data["hotovost"] + data["bank"]
     save_data()
-    await interaction.response.send_message(f"✅ Odebráno {castka}$ hráči {uzivatel.display_name}.")
+    await interaction.response.send_message(f"✅ Odebráno {actual_castka}$ hráči {uzivatel.display_name}.")
 
 # Reset penize command
 
@@ -612,77 +626,7 @@ async def autocomplete_kup_auto(interaction: discord.Interaction, current: str):
     ][:25]
 
 # Kup zbran command
-# --- Prodat auto ---
 
-@tree.command(name="prodat-auto", description="Prodej auto za cenu z nabídky")
-@app_commands.describe(auto="Auto, které chceš prodat", pocet="Počet kusů k prodeji")
-async def prodat_auto(interaction: discord.Interaction, auto: str, pocet: int = 1):
-    uzivatel = interaction.user
-    data = get_or_create_user(uzivatel.id)
-
-    if auto not in data["auta"] or data["auta"][auto] < pocet:
-        await interaction.response.send_message(f"❌ Nemáš dostatek aut `{auto}` k prodeji.", ephemeral=True)
-        return
-    if auto not in CENY_AUT:
-        await interaction.response.send_message(f"❌ Auto `{auto}` není možné prodat.", ephemeral=True)
-        return
-
-    cena_za_kus = CENY_AUT[auto]
-    celkova_cena = cena_za_kus * pocet
-
-    # Odeber auto
-    data["auta"][auto] -= pocet
-    if data["auta"][auto] <= 0:
-        del data["auta"][auto]
-
-    # Přidej peníze
-    data["hotovost"] = data.get("hotovost", 0) + celkova_cena
-    data["penize"] = data["hotovost"] + data["bank"]
-
-    save_data()
-    await interaction.response.send_message(f"✅ Prodáno {pocet}x `{auto}` za {celkova_cena:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
-
-@prodat_auto.autocomplete("auto")
-async def autocomplete_prodat_auto(interaction: discord.Interaction, current: str):
-    data = get_or_create_user(interaction.user.id)
-    auta = data.get("auta", {})
-    return [app_commands.Choice(name=a, value=a) for a in auta if current.lower() in a.lower()][:25]
-
-# --- Prodat zbraň ---
-
-@tree.command(name="prodat-zbran", description="Prodej zbraň za cenu z nabídky")
-@app_commands.describe(zbran="Zbraň, kterou chceš prodat", pocet="Počet kusů k prodeji")
-async def prodat_zbran(interaction: discord.Interaction, zbran: str, pocet: int = 1):
-    uzivatel = interaction.user
-    data = get_or_create_user(uzivatel.id)
-
-    if zbran not in data["zbrane"] or data["zbrane"][zbran] < pocet:
-        await interaction.response.send_message(f"❌ Nemáš dostatek zbraní `{zbran}` k prodeji.", ephemeral=True)
-        return
-    if zbran not in CENY_ZBRANI:
-        await interaction.response.send_message(f"❌ Zbraň `{zbran}` není možné prodat.", ephemeral=True)
-        return
-
-    cena_za_kus = CENY_ZBRANI[zbran]
-    celkova_cena = cena_za_kus * pocet
-
-    # Odeber zbraň
-    data["zbrane"][zbran] -= pocet
-    if data["zbrane"][zbran] <= 0:
-        del data["zbrane"][zbran]
-
-    # Přidej peníze
-    data["hotovost"] = data.get("hotovost", 0) + celkova_cena
-    data["penize"] = data["hotovost"] + data["bank"]
-
-    save_data()
-    await interaction.response.send_message(f"✅ Prodáno {pocet}x `{zbran}` za {cena_za_kus:,}$ (celkem {celkova_cena:,}$). Máš nyní {data['penize']:,}$.")
-
-@prodat_zbran.autocomplete("zbran")
-async def autocomplete_prodat_zbran(interaction: discord.Interaction, current: str):
-    data = get_or_create_user(interaction.user.id)
-    zbrane = data.get("zbrane", {})
-    return [app_commands.Choice(name=z, value=z) for z in zbrane if current.lower() in z.lower()][:25]
 
 @tree.command(name="koupit-zbran", description="Koupit zbraň z nabídky")
 @app_commands.describe(zbran="Zbraň, kterou chceš koupit", pocet="Počet kusů")
@@ -798,6 +742,12 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
         )
         await interaction.followup.send(embed=fail_embed)
 
+@prodej_auto.autocomplete("auto")
+async def autocomplete_prodej_auto(interaction: discord.Interaction, current: str):
+    data = get_or_create_user(interaction.user.id)
+    auta = data.get("auta", {})
+    return [app_commands.Choice(name=a, value=a) for a in auta if current.lower() in a.lower()][:25]
+
 @tree.command(name="prodej-zbran", description="Prodá zbraň jinému hráči")
 @app_commands.describe(kupec="Komu prodáváš zbraň", zbran="Jakou zbraň prodáváš", cena="Cena za zbraň")
 async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, zbran: str, cena: int):
@@ -869,46 +819,80 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
         )
         await interaction.followup.send(embed=fail_embed)
 
-@tree.command(name="vybrat", description="Vybere peníze z banky do peněženky")
-@app_commands.describe(castka="Částka, kterou chceš vybrat")
-async def vybrat(interaction: discord.Interaction, castka: int):
-    if castka <= 0:
-        await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
-        return
+@prodej_zbran.autocomplete("zbran")
+async def autocomplete_prodej_zbran(interaction: discord.Interaction, current: str):
+    data = get_or_create_user(interaction.user.id)
+    zbrane = data.get("zbrane", {})
+    return [app_commands.Choice(name=z, value=z) for z in zbrane if current.lower() in z.lower()][:25]
 
+@tree.command(name="vybrat", description="Vybere peníze z banky do peněženky")
+@app_commands.describe(castka="Částka, kterou chceš vybrat (nebo 'all' pro všechny)")
+async def vybrat(interaction: discord.Interaction, castka: str):
     data = get_or_create_user(interaction.user.id)
 
-    if data.get("bank", 0) < castka:
-        await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
-        return
+    if castka.lower() == "all":
+        actual_castka = data.get("bank", 0)
+        if actual_castka <= 0:
+            await interaction.response.send_message("❌ Nemáš žádné peníze v bance.", ephemeral=True)
+            return
+        data["bank"] = 0
+        data["hotovost"] += actual_castka
+    else:
+        try:
+            actual_castka = int(castka)
+            if actual_castka <= 0:
+                await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Neplatná částka. Použij číslo nebo 'all'.", ephemeral=True)
+            return
 
-    data["bank"] -= castka
-    data["hotovost"] += castka
+        if data.get("bank", 0) < actual_castka:
+            await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
+            return
+
+        data["bank"] -= actual_castka
+        data["hotovost"] += actual_castka
+
     data["penize"] = data["hotovost"] + data["bank"]
     save_data()
 
-    await interaction.response.send_message(f"✅ Vybral jsi {castka:,} $ z banky do peněženky.")
+    await interaction.response.send_message(f"✅ Vybral jsi {actual_castka:,} $ z banky do peněženky.")
 
 
 @tree.command(name="vlozit", description="Vloží peníze z peněženky do banky")
-@app_commands.describe(castka="Částka, kterou chceš vložit")
-async def vlozit(interaction: discord.Interaction, castka: int):
-    if castka <= 0:
-        await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
-        return
-
+@app_commands.describe(castka="Částka, kterou chceš vložit (nebo 'all' pro všechny)")
+async def vlozit(interaction: discord.Interaction, castka: str):
     data = get_or_create_user(interaction.user.id)
 
-    if data.get("hotovost", 0) < castka:
-        await interaction.response.send_message("❌ Nemáš dostatek peněz v peněžence.", ephemeral=True)
-        return
+    if castka.lower() == "all":
+        actual_castka = data.get("hotovost", 0)
+        if actual_castka <= 0:
+            await interaction.response.send_message("❌ Nemáš žádné peníze v peněžence.", ephemeral=True)
+            return
+        data["hotovost"] = 0
+        data["bank"] += actual_castka
+    else:
+        try:
+            actual_castka = int(castka)
+            if actual_castka <= 0:
+                await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
+                return
+        except ValueError:
+            await interaction.response.send_message("❌ Neplatná částka. Použij číslo nebo 'all'.", ephemeral=True)
+            return
 
-    data["hotovost"] -= castka
-    data["bank"] += castka
+        if data.get("hotovost", 0) < actual_castka:
+            await interaction.response.send_message("❌ Nemáš dostatek peněz v peněžence.", ephemeral=True)
+            return
+
+        data["hotovost"] -= actual_castka
+        data["bank"] += actual_castka
+
     data["penize"] = data["hotovost"] + data["bank"]
     save_data()
 
-    await interaction.response.send_message(f"✅ Vložil jsi {castka:,} $ z peněženky do banky.")
+    await interaction.response.send_message(f"✅ Vložil jsi {actual_castka:,} $ z peněženky do banky.")
 
 
 bot.run(TOKEN)
