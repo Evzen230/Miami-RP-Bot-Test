@@ -415,23 +415,19 @@ async def reset_inventory(interaction: discord.Interaction, uzivatel: discord.Me
 
 # Balance command
 
-@tree.command(name="balance", description="Zobrazí finanční stav (hotovost a banka)")
+@tree.command(name="balance", description="Zobrazí finanční stav")
 @app_commands.describe(uzivatel="(Volitelné) Uživatel, jehož stav chceš zobrazit")
 async def balance(interaction: discord.Interaction, uzivatel: discord.Member = None):
     uzivatel = uzivatel or interaction.user
     data = get_or_create_user(uzivatel.id)
 
-    hotovost = data.get("hotovost", 0)
-    banka = data.get("banka", 0)
-    celkem = hotovost + banka
+    penize = data.get("penize", 0)
 
     embed = discord.Embed(
         title=f"💰 Finanční přehled pro {uzivatel.display_name}",
         color=discord.Color.gold()
     )
-    embed.add_field(name="👜 Peněženka", value=f"{hotovost:,} $", inline=True)
-    embed.add_field(name="🏦 Banka", value=f"{banka:,} $", inline=True)
-    embed.add_field(name="💵 Celkem", value=f"{celkem:,} $", inline=False)
+    embed.add_field(name="💵 Peníze", value=f"{penize:,} $", inline=False)
 
     await interaction.response.send_message(embed=embed)
 
@@ -632,35 +628,7 @@ async def koupit_zbran(interaction: discord.Interaction, zbran: str, pocet: int 
 async def autocomplete_koupit_zbran(interaction: discord.Interaction, current: str):
     return [app_commands.Choice(name=z, value=z) for z in CENY_ZBRANI if current.lower() in z.lower()][:25]
 
-@tree.command(name="vloz", description="Vloží peníze z hotovosti do banky")
-@app_commands.describe(castka="Částka, kterou chceš vložit")
-async def vloz(interaction: discord.Interaction, castka: int):
-    data = get_or_create_user(interaction.user.id)
-    if castka <= 0:
-        await interaction.response.send_message("❌ Zadej kladnou částku.", ephemeral=True)
-        return
-    if data["hotovost"] < castka:
-        await interaction.response.send_message("❌ Nemáš dostatek hotovosti.", ephemeral=True)
-        return
-    data["hotovost"] -= castka
-    data["banka"] += castka
-    save_data()
-    await interaction.response.send_message(f"💰 Vloženo {castka}$ do banky.")
 
-@tree.command(name="vyber", description="Vybere peníze z banky do hotovosti")
-@app_commands.describe(castka="Částka, kterou chceš vybrat")
-async def vyber(interaction: discord.Interaction, castka: int):
-    data = get_or_create_user(interaction.user.id)
-    if castka <= 0:
-        await interaction.response.send_message("❌ Zadej kladnou částku.", ephemeral=True)
-        return
-    if data["banka"] < castka:
-        await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
-        return
-    data["banka"] -= castka
-    data["hotovost"] += castka
-    save_data()
-    await interaction.response.send_message(f"💸 Vybráno {castka}$ z banky.")
 @tree.command(name="prodej-auto", description="Prodá auto jinému hráči")
 @app_commands.describe(kupec="Komu prodáváš auto", auto="Jaké auto prodáváš", cena="Cena za auto")
 async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, auto: str, cena: int):
@@ -673,7 +641,7 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
     if prodavajici_data["auta"][auto] <= 0:
         await interaction.response.send_message("❌ Nemáš žádné kusy tohoto auta.", ephemeral=True)
         return
-    if kupec_data["hotovost"] < cena:
+    if kupec_data["penize"] < cena:
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
@@ -683,8 +651,8 @@ async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, a
         del prodavajici_data["auta"][auto]
     kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
 
-    kupec_data["hotovost"] -= cena
-    prodavajici_data["hotovost"] += cena
+    kupec_data["penize"] -= cena
+    prodavajici_data["penize"] += cena
 
     save_data()
     await interaction.response.send_message(f"✅ Auto `{auto}` bylo prodáno {kupec.display_name} za {cena}$.")
@@ -701,7 +669,7 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
     if prodavajici_data["zbrane"][zbran] <= 0:
         await interaction.response.send_message("❌ Nemáš žádné kusy této zbraně.", ephemeral=True)
         return
-    if kupec_data["hotovost"] < cena:
+    if kupec_data["penize"] < cena:
         await interaction.response.send_message("❌ Kupující nemá dostatek peněz.", ephemeral=True)
         return
 
@@ -711,8 +679,8 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
         del prodavajici_data["zbrane"][zbran]
     kupec_data["zbrane"][zbran] = kupec_data["zbrane"].get(zbran, 0) + 1
 
-    kupec_data["hotovost"] -= cena
-    prodavajici_data["hotovost"] += cena
+    kupec_data["penize"] -= cena
+    prodavajici_data["penize"] += cena
 
     save_data()
     await interaction.response.send_message(f"✅ Zbraň `{zbran}` byla prodána {kupec.display_name} za {cena}$.")
