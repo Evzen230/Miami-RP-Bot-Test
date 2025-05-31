@@ -1,20 +1,35 @@
+import datetime
 import discord
 from discord import app_commands
 import json
 import os
 from discord.ext import commands
 import asyncio
+from keep_alive import keep_alive 
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-
+keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 tree = bot.tree
 
 # === Seznamy dostupných aut a zbraní ===
+
+
+# Role ID a týdenní odměna (v dolarech)
+ROLE_ODMENY = {
+    1378320035277307914: 30,   # Např. Policista
+    1378319995250937906: 20,   # Např. Starosta
+    1378319956512473109: 10    # Např. Občan
+}
+
+# V datovém modelu musíš mít poslední čas vyzvednutí
+# Např.: data["last_collect"] = "2024-05-30T12:00:00"
+
 DOSTUPNA_AUTA = [
     "Falcon Stallion 350 1969", "Bullhorn Prancer 1969",
     "Falcon Advance 100 Holiday Edition 1956", "Chevlon Corbeta C2 1967",
@@ -138,7 +153,8 @@ CENY_ZBRANI = {
     "Beretta M9": 700, 
     "Desert Eagle": 900, 
     "Colt M1911": 750, 
-    "Colt Python": 1000, 
+    "Colt Python": 1000,
+    "Lemat Revolver": 1200,
 
     # Zbraně typu B:
     "TEC-9": 1000,
@@ -473,7 +489,7 @@ async def balance(interaction: discord.Interaction, uzivatel: discord.Member = N
         title=f"💰 Finanční přehled pro {uzivatel.display_name}",
         color=discord.Color.gold()
     )
-    embed.add_field(name="💵 Peníze", value=f"{penize:,} $", inline=False)
+    embed.add_field(name="💵 Celkem", value=f"{penize:,} $", inline=False)
     embed.add_field(name="💳 Hotovost", value=f"{hotovost:,} $", inline=True)
     embed.add_field(name="🏦 Banka", value=f"{bank:,} $", inline=True)
 
@@ -893,6 +909,67 @@ async def vlozit(interaction: discord.Interaction, castka: str):
     save_data()
 
     await interaction.response.send_message(f"✅ Vložil jsi {actual_castka:,} $ z peněženky do banky.")
+
+@tree.command(name="collect", description="Vybereš si týdenní výplatu podle svých rolí (každá má vlastní cooldown).")
+async def collect(interaction: discord.Interaction):
+    now = datetime.datetime.utcnow()
+    data = get_or_create_user(interaction.user.id)
+
+    if "collect_timestamps" not in data:
+        data["collect_timestamps"] = {}
+
+    user_role_ids = [role.id for role in interaction.user.roles]
+
+    vyplaceno = 0
+    vyplacene_role = []
+    cekajici_role = []
+
+    for role_id, castka in ROLE_ODMENY.items():
+        if role_id not in user_role_ids:
+            continue
+
+        posledni = data["collect_timestamps"].get(str(role_id))
+        if posledni:
+            posledni_cas = datetime.datetime.fromisoformat(posledni)
+            rozdil = now - posledni_cas
+            if rozdil < datetime.timedelta(days=7):
+                zbývá = datetime.timedelta(days=7) - rozdil
+                hodiny, zbytek = divmod(zbývá.total_seconds(), 3600)
+                minuty = int((zbytek % 3600) // 60)
+                cekajici_role.append((role_id, hodiny, minuty))
+                continue
+
+        vyplaceno += castka
+        vyplacene_role.append((role_id, castka))
+        data["collect_timestamps"][str(role_id)] = now.isoformat()
+
+    data["hotovost"] = data.get("hotovost", 0) + vyplaceno
+    save_data()
+
+    embed = discord.Embed(
+        title="💰 Týdenní výplata",
+        color=discord.Color.green()
+    )
+    if vyplacene_role:
+        popis = ""
+        for role_id, castka in vyplacene_role:
+            role_obj = discord.utils.get(interaction.guild.roles, id=role_id)
+            nazev = role_obj.name if role_obj else f"Role ID {role_id}"
+            popis += f"✅ **{nazev}**: +{castka:,} $\n"
+        embed.add_field(name="💸 Vyplaceno", value=popis, inline=False)
+
+    if cekajici_role:
+        cekani = ""
+        for role_id, h, m in cekajici_role:
+            role_obj = discord.utils.get(interaction.guild.roles, id=role_id)
+            nazev = role_obj.name if role_obj else f"Role ID {role_id}"
+            cekani += f"⏳ **{nazev}** – za {int(h)}h {int(m)}m\n"
+        embed.add_field(name="🕒 Nelze vybrat (ještě cooldown)", value=cekani, inline=False)
+
+    if not vyplacene_role:
+        embed.description = "❌ Tento týden už sis vybral odměnu za všechny své role."
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 bot.run(TOKEN)

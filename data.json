@@ -1,12 +1,18 @@
 {
     "710192260657971200": {
-        "auta": {},
-        "zbrane": {
-            "Lemat Revolver": 1
+        "auta": {
+            "Bullhorn Prancer 1969": 100
         },
-        "penize": 1000,
-        "hotovost": 500,
-        "bank": 500
+        "zbrane": {},
+        "penize": 11080,
+        "hotovost": 11080,
+        "bank": 0,
+        "last_collect": "2025-05-31T10:33:54.411705",
+        "collect_timestamps": {
+            "1378320035277307914": "2025-05-31T10:50:52.613710",
+            "1378319995250937906": "2025-05-31T10:50:52.613710",
+            "1378319956512473109": "2025-05-31T10:50:52.613710"
+        }
     },
     "1331299862146318347": {
         "auta": [
@@ -22,9 +28,20 @@
             "Overland Buckaroo 2018": 1,
             "Falcon Advance 100 Holiday Edition 1956": 1
         },
+        "zbrane": {
+            "Lemat Revolver": 1
+        },
+        "penize": 10990,
+        "hotovost": 10990,
+        "bank": 0
+    },
+    "1210862009445523506": {
+        "auta": {
+            "Chevlon Antilope 1994": 1
+        },
         "zbrane": {},
-        "penize": 997,
-        "hotovost": 0,
+        "penize": 100,
+        "hotovost": 100,
         "bank": 0
     }
 }
