@@ -71,7 +71,30 @@ def save_data():
 def get_or_create_user(user_id):
     user_id = str(user_id)
     if user_id not in databaze:
-        databaze[user_id] = {"auta": [], "zbrane": []}
+        databaze[user_id] = {"auta": {}, "zbrane": {}}
+    else:
+        # Convert old list format to new dict format
+        data = databaze[user_id]
+        if isinstance(data.get("auta"), list):
+            # Convert list to dict with counts
+            auta_dict = {}
+            for auto in data["auta"]:
+                if auto in auta_dict:
+                    auta_dict[auto] += 1
+                else:
+                    auta_dict[auto] = 1
+            data["auta"] = auta_dict
+        
+        if isinstance(data.get("zbrane"), list):
+            # Convert list to dict with counts
+            zbrane_dict = {}
+            for zbran in data["zbrane"]:
+                if zbran in zbrane_dict:
+                    zbrane_dict[zbran] += 1
+                else:
+                    zbrane_dict[zbran] = 1
+            data["zbrane"] = zbrane_dict
+            
     return databaze[user_id]
 
 
@@ -122,12 +145,11 @@ async def on_ready():
         ][:25]
 #odeber zbran command
 
-@tree.command(name="odeber-zbran",
-                  description="Odebere zbraň hráči (admin)")
-@app_commands.describe(uzivatel="Uživatel, kterému odebereš zbraň",
+@tree.command(name="odeber-zbran", description="Odebere zbraň hráči (admin)")
+    @app_commands.describe(uzivatel="Uživatel, kterému odebereš zbraň",
                            zbran="Zbraň, kterou chceš odebrat",
                            pocet="Počet kusů")
-async def odeber_zbran(interaction: discord.Interaction,
+    async def odeber_zbran(interaction: discord.Interaction,
                            uzivatel: discord.Member,
                            zbran: str,
                            pocet: int = 1):
@@ -151,7 +173,7 @@ async def odeber_zbran(interaction: discord.Interaction,
             )
 
 @odeber_zbran.autocomplete("zbran")
-async def autocomplete_zbran_odebrat(interaction: discord.Interaction,
+    async def autocomplete_zbran_odebrat(interaction: discord.Interaction,
                                          current: str):
         uzivatel = interaction.namespace.uzivatel
         if not uzivatel:
@@ -162,107 +184,102 @@ async def autocomplete_zbran_odebrat(interaction: discord.Interaction,
             if current.lower() in z.lower()
         ][:25]
 
-
-#Pridej auto command
-@tree.command(name="pridej-auto", description="Přidá auto hráči (admin)")
-@app_commands.describe(uzivatel="Uživatel, kterému přidáš auto",
-                       auto="Auto, které chceš přidat",
-                       pocet="Počet kusů")
-async def pridej_auto(interaction: discord.Interaction,
-                      uzivatel: discord.Member,
-                      auto: str,
-                      pocet: int = 1):
-    role_id = 1378111107780313209  # Změň na skutečné ID role
-    if not any(role.id == role_id for role in interaction.user.roles):
-        await interaction.response.send_message(
-            "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
-        return
-    if auto not in DOSTUPNA_AUTA:
-        await interaction.response.send_message(
-            f"❌ Auto `{auto}` není v seznamu dostupných aut.", ephemeral=True)
-        return
-    data = get_or_create_user(uzivatel.id)
-    if auto in data["auta"]:
-        data["auta"][auto] += pocet
-    else:
-        data["auta"][auto] = pocet
-    save_data()
-    await interaction.response.send_message(
-        f"✅ Přidáno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
-
-
-@pridej_auto.autocomplete("auto")
-async def autocomplete_auto_pridat(interaction: discord.Interaction,
-                                   current: str):
-    return [
-        app_commands.Choice(name=a, value=a) for a in DOSTUPNA_AUTA
-        if current.lower() in a.lower()
-    ][:25]
-
-
-# Odeber auto command
-@tree.command(name="odeber-auto", description="Odebere auto hráči (admin)")
-@app_commands.describe(uzivatel="Uživatel, kterému odebereš auto",
-                       auto="Auto, které chceš odebrat",
-                       pocet="Počet kusů")
-async def odeber_auto(interaction: discord.Interaction,
-                      uzivatel: discord.Member,
-                      auto: str,
-                      pocet: int = 1):
-    role_id = 1378111107780313209  # Změň na skutečné ID role
-    if not any(role.id == role_id for role in interaction.user.roles):
-        await interaction.response.send_message(
-            "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
-        return
-    data = get_or_create_user(uzivatel.id)
-    if auto in data["auta"]:
-        data["auta"][auto] -= pocet
-        if data["auta"][auto] <= 0:
-            del data["auta"][auto]
+    # Pridej auto command
+    @tree.command(name="pridej-auto", description="Přidá auto hráči (admin)")
+    @app_commands.describe(uzivatel="Uživatel, kterému přidáš auto",
+                           auto="Auto, které chceš přidat",
+                           pocet="Počet kusů")
+    async def pridej_auto(interaction: discord.Interaction,
+                          uzivatel: discord.Member,
+                          auto: str,
+                          pocet: int = 1):
+        role_id = 1378111107780313209  # Změň na skutečné ID role
+        if not any(role.id == role_id for role in interaction.user.roles):
+            await interaction.response.send_message(
+                "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+            return
+        if auto not in DOSTUPNA_AUTA:
+            await interaction.response.send_message(
+                f"❌ Auto `{auto}` není v seznamu dostupných aut.", ephemeral=True)
+            return
+        data = get_or_create_user(uzivatel.id)
+        if auto in data["auta"]:
+            data["auta"][auto] += pocet
+        else:
+            data["auta"][auto] = pocet
         save_data()
         await interaction.response.send_message(
-            f"✅ Odebráno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
-    else:
-        await interaction.response.send_message(
-            f"❌ Auto `{auto}` nebylo nalezeno u {uzivatel.display_name}.")
+            f"✅ Přidáno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
 
+    @pridej_auto.autocomplete("auto")
+    async def autocomplete_auto_pridat(interaction: discord.Interaction,
+                                       current: str):
+        return [
+            app_commands.Choice(name=a, value=a) for a in DOSTUPNA_AUTA
+            if current.lower() in a.lower()
+        ][:25]
 
-@odeber_auto.autocomplete("auto")
-async def autocomplete_auto_odebrat(interaction: discord.Interaction,
-                                    current: str):
-    uzivatel = interaction.namespace.uzivatel
-    if not uzivatel:
-        return []
-    data = get_or_create_user(uzivatel.id)
-    return [
-        app_commands.Choice(name=a, value=a) for a in data["auta"]
-        if current.lower() in a.lower()
-    ][:25]
+    # Odeber auto command
+    @tree.command(name="odeber-auto", description="Odebere auto hráči (admin)")
+    @app_commands.describe(uzivatel="Uživatel, kterému odebereš auto",
+                           auto="Auto, které chceš odebrat",
+                           pocet="Počet kusů")
+    async def odeber_auto(interaction: discord.Interaction,
+                          uzivatel: discord.Member,
+                          auto: str,
+                          pocet: int = 1):
+        role_id = 1378111107780313209  # Změň na skutečné ID role
+        if not any(role.id == role_id for role in interaction.user.roles):
+            await interaction.response.send_message(
+                "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+            return
+        data = get_or_create_user(uzivatel.id)
+        if auto in data["auta"]:
+            data["auta"][auto] -= pocet
+            if data["auta"][auto] <= 0:
+                del data["auta"][auto]
+            save_data()
+            await interaction.response.send_message(
+                f"✅ Odebráno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
+        else:
+            await interaction.response.send_message(
+                f"❌ Auto `{auto}` nebylo nalezeno u {uzivatel.display_name}.")
 
+    @odeber_auto.autocomplete("auto")
+    async def autocomplete_auto_odebrat(interaction: discord.Interaction,
+                                        current: str):
+        uzivatel = interaction.namespace.uzivatel
+        if not uzivatel:
+            return []
+        data = get_or_create_user(uzivatel.id)
+        return [
+            app_commands.Choice(name=a, value=a) for a in data["auta"]
+            if current.lower() in a.lower()
+        ][:25]
 
-# Invenotry command
-@tree.command(name="inventory", description="Zobrazí inventář hráče")
-@app_commands.describe(uzivatel="Uživatel, jehož inventář chceš zobrazit")
-async def inventory(interaction: discord.Interaction,
-                    uzivatel: discord.Member = None):
-    uzivatel = uzivatel or interaction.user
-    data = get_or_create_user(uzivatel.id)
+    # Inventory command
+    @tree.command(name="inventory", description="Zobrazí inventář hráče")
+    @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš zobrazit")
+    async def inventory(interaction: discord.Interaction,
+                        uzivatel: discord.Member = None):
+        uzivatel = uzivatel or interaction.user
+        data = get_or_create_user(uzivatel.id)
 
-    auta = data.get("auta", {})
-    zbrane = data.get("zbrane", {})
+        auta = data.get("auta", {})
+        zbrane = data.get("zbrane", {})
 
-    auta_text = "\n".join(f"🚗 {auto} ×{pocet}"
-                          for auto, pocet in auta.items()) or "Žádná"
-    zbrane_text = "\n".join(f"🔫 {zbran} ×{pocet}"
-                            for zbran, pocet in zbrane.items()) or "Žádné"
+        auta_text = "\n".join(f"🚗 {auto} ×{pocet}"
+                              for auto, pocet in auta.items()) or "Žádná"
+        zbrane_text = "\n".join(f"🔫 {zbran} ×{pocet}"
+                                for zbran, pocet in zbrane.items()) or "Žádné"
 
-    embed = discord.Embed(
-        title=f"📋 Inventář uživatele {uzivatel.display_name}",
-        color=discord.Color.blue())
-    embed.add_field(name="Auta", value=auta_text, inline=False)
-    embed.add_field(name="Zbraně", value=zbrane_text, inline=False)
+        embed = discord.Embed(
+            title=f"📋 Inventář uživatele {uzivatel.display_name}",
+            color=discord.Color.blue())
+        embed.add_field(name="Auta", value=auta_text, inline=False)
+        embed.add_field(name="Zbraně", value=zbrane_text, inline=False)
 
-    await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
 
 bot.run(TOKEN)
