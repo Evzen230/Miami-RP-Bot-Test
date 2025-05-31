@@ -4,9 +4,9 @@
         "zbrane": {
             "Lemat Revolver": 1
         },
-        "penize": 100,
-        "hotovost": 0,
-        "bank": 0
+        "penize": 1000,
+        "hotovost": 500,
+        "bank": 500
     },
     "1331299862146318347": {
         "auta": [
