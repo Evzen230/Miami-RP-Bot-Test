@@ -160,10 +160,15 @@ def save_data():
 def get_or_create_user(user_id):
     user_id = str(user_id)
     if user_id not in databaze:
-        databaze[user_id] = {"auta": {}, "zbrane": {},"penize": 0}
+        databaze[user_id] = {"auta": {}, "zbrane": {}, "penize": 0}
     else:
-        # Convert old list format to new dict format
+        # Convert old list format to new dict format and ensure penize field exists
         data = databaze[user_id]
+        
+        # Ensure penize field exists
+        if "penize" not in data:
+            data["penize"] = 0
+        
         if isinstance(data.get("auta"), list):
             # Convert list to dict with counts
             auta_dict = {}
@@ -373,7 +378,7 @@ async def inventory(interaction: discord.Interaction,
 @tree.command(name="reset-inventory", description="Resetuje celý inventář hráče (admin)")
 @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš vymazat")
 async def reset_inventory(interaction: discord.Interaction, uzivatel: discord.Member):
-    role_id = 123456789012345678  # Změň na skutečné ID role
+    role_id = 1378111107780313209  # Změň na skutečné ID role
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
@@ -400,7 +405,7 @@ async def balance(interaction: discord.Interaction, uzivatel: discord.Member = N
 @tree.command(name="pridej-penize", description="Přidá peníze hráči (admin)")
 @app_commands.describe(uzivatel="Uživatel, kterému chceš přidat peníze", castka="Kolik peněz chceš přidat")
 async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: int):
-    role_id = 123456789012345678  # Změň na ID role s oprávněním
+    role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
@@ -413,7 +418,7 @@ async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Memb
 @tree.command(name="odeber-penize", description="Odebere peníze hráči (admin)")
 @app_commands.describe(uzivatel="Uživatel, kterému chceš odebrat peníze", castka="Kolik peněz chceš odebrat")
 async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: int):
-    role_id = 123456789012345678  # Změň na ID role s oprávněním
+    role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
@@ -429,7 +434,7 @@ async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Memb
 @tree.command(name="reset-penize", description="Resetuje peníze hráče (admin)")
 @app_commands.describe(uzivatel="Uživatel, jehož peníze chceš vynulovat")
 async def reset_penize(interaction: discord.Interaction, uzivatel: discord.Member):
-    role_id = 123456789012345678  # Změň na ID role s oprávněním
+    role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
