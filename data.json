@@ -1,10 +1,27 @@
-
-  "123456789012345678": {
-    "auta": ["BMW M5"],
-    "zbrane": ["Glock 17"]
-  },
-  "987654321098765432": {
-    "auta": [],
-    "zbrane": []
-  }
+{
+    "710192260657971200": {
+        "auta": [
+            "octavia3",
+            "Overland Buckaroo 2018",
+            "Falcon Advance 100 Holiday Edition 1956"
+        ],
+        "zbrane": [
+            "Lemat Revolver"
+        ]
+    },
+    "1331299862146318347": {
+        "auta": [
+            "BMW",
+            "Falcon Stallion 350 1969",
+            "Bullhorn Foreman 1988"
+        ],
+        "zbrane": []
+    },
+    "792820515491282965": {
+        "auta": [
+            "Bullhorn Prancer Widebody 2020",
+            "Bullhorn Prancer Widebody 2020"
+        ],
+        "zbrane": []
+    }
 }
