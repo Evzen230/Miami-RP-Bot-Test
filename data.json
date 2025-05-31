@@ -1,12 +1,12 @@
 {
     "710192260657971200": {
-        "auta": {
-            "Falcon Advance 100 Holiday Edition 1956": 1
-        },
+        "auta": {},
         "zbrane": {
             "Lemat Revolver": 1
         },
-        "penize": 1099999002
+        "penize": 100,
+        "hotovost": 0,
+        "bank": 0
     },
     "1331299862146318347": {
         "auta": [
@@ -19,9 +19,12 @@
     "792820515491282965": {
         "auta": {
             "Bullhorn Prancer Widebody 2020": 2,
-            "Overland Buckaroo 2018": 1
+            "Overland Buckaroo 2018": 1,
+            "Falcon Advance 100 Holiday Edition 1956": 1
         },
         "zbrane": {},
-        "penize": 998
+        "penize": 997,
+        "hotovost": 0,
+        "bank": 0
     }
 }

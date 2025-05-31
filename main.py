@@ -785,5 +785,44 @@ async def prodej_zbran(interaction: discord.Interaction, kupec: discord.Member, 
         )
         await interaction.followup.send(embed=fail_embed)
 
+@tree.command(name="vybrat", description="Vybere peníze z banky do peněženky")
+@app_commands.describe(castka="Částka, kterou chceš vybrat")
+async def vybrat(interaction: discord.Interaction, castka: int):
+    if castka <= 0:
+        await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
+        return
+
+    data = get_or_create_user(interaction.user.id)
+
+    if data.get("banka", 0) < castka:
+        await interaction.response.send_message("❌ Nemáš dostatek peněz v bance.", ephemeral=True)
+        return
+
+    data["banka"] -= castka
+    data["hotovost"] += castka
+    save_data()
+
+    await interaction.response.send_message(f"✅ Vybral jsi {castka:,} $ z banky do peněženky.")
+
+
+@tree.command(name="vlozit", description="Vloží peníze z peněženky do banky")
+@app_commands.describe(castka="Částka, kterou chceš vložit")
+async def vlozit(interaction: discord.Interaction, castka: int):
+    if castka <= 0:
+        await interaction.response.send_message("❌ Částka musí být větší než 0.", ephemeral=True)
+        return
+
+    data = get_or_create_user(interaction.user.id)
+
+    if data.get("hotovost", 0) < castka:
+        await interaction.response.send_message("❌ Nemáš dostatek peněz v peněžence.", ephemeral=True)
+        return
+
+    data["hotovost"] -= castka
+    data["banka"] += castka
+    save_data()
+
+    await interaction.response.send_message(f"✅ Vložil jsi {castka:,} $ z peněženky do banky.")
+
 
 bot.run(TOKEN)
