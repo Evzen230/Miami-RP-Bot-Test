@@ -1,13 +1,12 @@
 {
     "710192260657971200": {
-        "auta": [
-            "octavia3",
-            "Overland Buckaroo 2018",
-            "Falcon Advance 100 Holiday Edition 1956"
-        ],
-        "zbrane": [
-            "Lemat Revolver"
-        ]
+        "auta": {
+            "Overland Buckaroo 2018": 1,
+            "Falcon Advance 100 Holiday Edition 1956": 1
+        },
+        "zbrane": {
+            "Lemat Revolver": 1
+        }
     },
     "1331299862146318347": {
         "auta": [
