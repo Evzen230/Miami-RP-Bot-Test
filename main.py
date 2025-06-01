@@ -7,6 +7,8 @@ from discord.ext import commands
 import asyncio
 from keep_alive import keep_alive 
 import random
+from operator import itemgetter
+from discord.ui import View, Button
 
 
 TOKEN = "MTI5MzYxMzAyMDg5MDc5NjA5Mw.GKKbKL.qDR5rQweqgJrE8w2q4V9ZAPrl3Q4pdEDiSGcg4"
@@ -221,7 +223,8 @@ CENY_VECI = {
     "varná sada": 1800
 }
 DROGY = ["Marihuana", "Kokain", "Metamfetamin", "Pervitin", "Extáze", "Heroin"]
-RECEPTY_DROG = {
+VYROBA_COOLDOWN = 30  # minutes
+RECEPTY = {
     "marihuana": {
         "suroviny": {
             "semena marihuany": 1,
@@ -808,8 +811,14 @@ async def koupit_zbran(interaction: discord.Interaction, zbran: str, pocet: int 
         )
         return
 
-    # Strhnutí peněz
-    odeber_penize(data, celkova_cena)
+    # Remove money from buyer (hotovost first, then bank)
+    remaining_to_remove = celkova_cena
+    if data["hotovost"] >= remaining_to_remove:
+        data["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= data["hotovost"]
+        data["hotovost"] = 0
+        data["bank"] -= remaining_to_remove
 
     # Přidání zbraně
     if zbran in data["zbrane"]:
@@ -846,7 +855,6 @@ async def koupit_zbran(interaction: discord.Interaction, zbran: str, pocet: int 
 @koupit_zbran.autocomplete("zbran")
 async def autocomplete_koupit_zbran(interaction: discord.Interaction, current: str):
     return [app_commands.Choice(name=z, value=z) for z in CENY_ZBRANI if current.lower() in z.lower()][:25]
-    await log_action(bot, interaction.guild, f"{interaction.user.mention} vybral týdenní odměny: {celkem:,}$ z rolí.")
 
 @tree.command(name="prodej-auto", description="Prodá auto jinému hráči")
 @app_commands.describe(kupec="Komu prodáváš auto", auto="Jaké auto prodáváš", cena="Cena za auto")
@@ -1166,23 +1174,24 @@ def create_embed(page: int):
     return embed
 
 # View s tlačítky
-class LeaderboardView(View):
-    def __init__(self):
-        super().__init__(timeout=60)
-        self.page = 0
+    class LeaderboardView(View):
+        def __init__(self):
+            super().__init__(timeout=60)
+            self.page = 0
 
-@discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
-async def prev(self, interaction2: discord.Interaction, button: Button):
-        if self.page > 0:
-            self.page -= 1
-            await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
+        @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
+        async def prev(self, interaction2: discord.Interaction, button: Button):
+            if self.page > 0:
+                self.page -= 1
+                await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
 
-@discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary)
-async def next(self, interaction2: discord.Interaction, button: Button):
-        if self.page < total_pages - 1:
-            self.page += 1
-            await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
-            await interaction.followup.send(embed=create_embed(0), view=LeaderboardView())
+        @discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary)
+        async def next(self, interaction2: discord.Interaction, button: Button):
+            if self.page < total_pages - 1:
+                self.page += 1
+                await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
+
+    await interaction.followup.send(embed=create_embed(0), view=LeaderboardView())
 
 
 @tree.command(name="prodej-veci", description="Prodej věci jinému hráči")
@@ -1254,15 +1263,28 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
     kupujici_data.setdefault("veci", {})
     kupujici_data["veci"][vec] = kupujici_data["veci"].get(vec, 0) + pocet
 
-    withdraw_money(kupujici_data, cena)
-    add_money(prodavajici_data, cena)
+    # Remove money from buyer (hotovost first, then bank)
+    remaining_to_remove = cena
+    if kupujici_data["hotovost"] >= remaining_to_remove:
+        kupujici_data["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= kupujici_data["hotovost"]
+        kupujici_data["hotovost"] = 0
+        kupujici_data["bank"] -= remaining_to_remove
+
+    # Add money to seller's hotovost
+    prodavajici_data["hotovost"] += cena
+    
+    # Update total money
+    kupujici_data["penize"] = kupujici_data["hotovost"] + kupujici_data["bank"]
+    prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
 
     save_data()
 
     await interaction.followup.send(f"✅ Obchod dokončen. {cil.mention} koupil `{pocet}x {vec}` od {prodavajici.mention} za `{cena:,}$`.")
 
     # LOG
-    await log_akce(f"🧾 {prodavajici.display_name} prodal {pocet}x {vec} uživateli {cil.display_name} za {cena:,}$.")
+    await log_action(bot, interaction.guild, f"🧾 {prodavajici.display_name} prodal {pocet}x {vec} uživateli {cil.display_name} za {cena:,}$.")
 
 @tree.command(name="kup-veci", description="Koupí věc z nabídky")
 @app_commands.describe(veci="Věc, kterou chceš koupit", pocet="Počet kusů")
@@ -1339,7 +1361,7 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
     await interaction.response.send_message(
         f"🧪 Výroba {mnozstvi}x `{droga}` začala. Dokončení za {celkovy_cas} minut...", ephemeral=True)
 
-    save_user(interaction.user.id, data)
+    save_data()
 
     # Spánek – simulace výroby
     await asyncio.sleep(celkovy_cas * 60)
@@ -1353,7 +1375,7 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
                 if veci[nastroj] <= 0:
                     veci.pop(nastroj)
 
-        save_user(interaction.user.id, data)
+        save_data()
         try:
             await uzivatel.send(f"❌ Výroba {droga} selhala. Přišel jsi o suroviny i nástroje.")
         except:
@@ -1361,8 +1383,10 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
         return
 
     # VÝROBA ÚSPĚŠNÁ ✅
-    drogy[droga] = drogy.get(droga, 0) + mnozstvi * 10
-    save_user(interaction.user.id, data)
+    if "drogy" not in data:
+        data["drogy"] = {}
+    data["drogy"][droga] = data["drogy"].get(droga, 0) + mnozstvi * 10
+    save_data()
 
     try:
         await uzivatel.send(f"✅ Výroba úspěšná: {mnozstvi * 10}g `{droga}` bylo přidáno do inventáře.")
