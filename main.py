@@ -1360,7 +1360,7 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
                 f"❌ Musíš počkat ještě {zbyva} minut, než můžeš znovu vyrábět.", ephemeral=True)
             return
 
-    recept = RECEPTY.get(droga.lower())
+    recept = RECEPTY.get(droga)
     if not recept:
         await interaction.response.send_message("❌ Tato droga neexistuje.", ephemeral=True)
         return
