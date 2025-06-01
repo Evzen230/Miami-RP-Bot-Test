@@ -311,7 +311,44 @@ def get_or_create_user(user_id):
             "veci": {}
         }
         save_data()
-    return databaze[user_id]
+        return databaze[user_id]
+    
+    # Convert old formats and ensure all fields exist
+    data = databaze[user_id]
+    
+    # Ensure all money fields exist
+    if "penize" not in data:
+        data["penize"] = 0
+    if "hotovost" not in data:
+        data["hotovost"] = 0
+    if "bank" not in data:
+        data["bank"] = 0
+    if "veci" not in data:
+        data["veci"] = {}
+
+    # Convert old list format to new dict format
+    if isinstance(data.get("auta"), list):
+        auta_dict = {}
+        for auto in data["auta"]:
+            if auto in auta_dict:
+                auta_dict[auto] += 1
+            else:
+                auta_dict[auto] = 1
+        data["auta"] = auta_dict
+
+    if isinstance(data.get("zbrane"), list):
+        zbrane_dict = {}
+        for zbran in data["zbrane"]:
+            if zbran in zbrane_dict:
+                zbrane_dict[zbran] += 1
+            else:
+                zbrane_dict[zbran] = 1
+        data["zbrane"] = zbrane_dict
+
+    # Update total money
+    data["penize"] = data["hotovost"] + data["bank"]
+    
+    return data
 # Načti data
 try:
     with open(DATA_FILE, "r") as f:
@@ -366,46 +403,7 @@ class ConfirmationView(discord.ui.View):
     async def on_timeout(self):
         self.result = False
 
-def get_or_create_user(user_id):
-    user_id = str(user_id)
-    if user_id not in databaze:
-        databaze[user_id] = {"auta": {}, "zbrane": {}, "penize": 0, "hotovost": 0, "bank": 0}
-    else:
-        # Convert old list format to new dict format and ensure all money fields exist
-        data = databaze[user_id]
 
-        # Ensure all money fields exist
-        if "penize" not in data:
-            data["penize"] = 0
-        if "hotovost" not in data:
-            data["hotovost"] = 0
-        if "bank" not in data:
-            data["bank"] = 0
-
-        if isinstance(data.get("auta"), list):
-            # Convert list to dict with counts
-            auta_dict = {}
-            for auto in data["auta"]:
-                if auto in auta_dict:
-                    auta_dict[auto] += 1
-                else:
-                    auta_dict[auto] = 1
-            data["auta"] = auta_dict
-
-        if isinstance(data.get("zbrane"), list):
-            # Convert list to dict with counts
-            zbrane_dict = {}
-            for zbran in data["zbrane"]:
-                if zbran in zbrane_dict:
-                    zbrane_dict[zbran] += 1
-                else:
-                    zbrane_dict[zbran] = 1
-            data["zbrane"] = zbrane_dict
-
-    # Update total money
-    data["penize"] = data["hotovost"] + data["bank"]
-
-    return databaze[user_id]
 
 def get_total_money(data):
     return data.get("hotovost", 0) + data.get("bank", 0)
