@@ -378,6 +378,20 @@ async def autocomplete_drogy(interaction: discord.Interaction, current: str):
         for drug in DROGY_SEZNAM if current.lower() in drug.lower()
     ][:25]
 
+# Autocomplete pro věci a drogy dohromady (pro prodej-veci)
+async def autocomplete_veci_drogy(interaction: discord.Interaction, current: str):
+    user_data = get_or_create_user(interaction.user.id)
+    veci = user_data.get("veci", {})
+    drogy = user_data.get("drogy", {})
+    
+    # Kombinuj věci a drogy z inventáře uživatele
+    dostupne_polozky = list(veci.keys()) + list(drogy.keys())
+    
+    return [
+        app_commands.Choice(name=item, value=item)
+        for item in dostupne_polozky if current.lower() in item.lower()
+    ][:25]
+
 # Načti data
 try:
     with open(DATA_FILE, "r") as f:
@@ -1282,7 +1296,8 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
         await interaction.edit_original_response(content="❌ Kupující odmítl nabídku.", embed=None, view=None)
         return
 
-    if data_kupce["hotovost"] < cena:
+    total_money_kupce = get_total_money(data_kupce)
+    if total_money_kupce < cena:
         await interaction.edit_original_response(content="❌ Kupující nemá dost peněz.", embed=None, view=None)
         return
 
@@ -1300,7 +1315,19 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
 
     # Převod peněz
     data_prodejce["hotovost"] += cena
-    data_kupce["hotovost"] -= cena
+    
+    # Remove money from buyer (hotovost first, then bank)
+    remaining_to_remove = cena
+    if data_kupce["hotovost"] >= remaining_to_remove:
+        data_kupce["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= data_kupce["hotovost"]
+        data_kupce["hotovost"] = 0
+        data_kupce["bank"] -= remaining_to_remove
+    
+    # Update total money for both users
+    data_prodejce["penize"] = data_prodejce["hotovost"] + data_prodejce["bank"]
+    data_kupce["penize"] = data_kupce["hotovost"] + data_kupce["bank"]
 
     save_data()
 
