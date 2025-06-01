@@ -194,106 +194,106 @@ DOSTUPNE_ZBRANE = [
 DOSTUPNE_VECI = ["Chemikálie", "Sušička", "UV Lampa", "Chemické nádobí", "Edrin", "MDMA", "Cukr", "Formička", "Mák"]
 CENY_VECI = {
     # 🔬 Suroviny
-    "chemikálie": 200,
-    "edrin": 300,
-    "mdma prášek": 200,
-    "barvivo": 50,
-    "plnidlo": 40,
-    "pseudoefedrin": 180,
-    "čistič": 90,
-    "cukr": 50,
-    "máková pasta": 150,
-    "semena marihuany": 250,
-    "voda": 10,
-    "hnojivo": 30,
-    "ocet": 15,
-    "listy koky": 350,
+    "Chemikálie": 200,
+    "Edrin": 300,
+    "Mdma prášek": 200,
+    "Barvivo": 50,
+    "Plnidlo": 40,
+    "Pseudoefedrin": 180,
+    "Čistič": 90,
+    "Cukr": 50,
+    "Máková pasta": 150,
+    "Semena marihuany": 250,
+    "Voda": 10,
+    "Hnojivo": 30,
+    "Ocet": 15,
+    "Listy koky": 350,
 
     # 🛠️ Nástroje
-    "sušička": 1500,
-    "formička": 1000,
-    "uv lampa": 1000,
-    "květináč": 150,
-    "destilační sada": 2500,
-    "extraktor": 2000,
-    "ochranná maska": 800,
-    "ochranné rukavice": 100,
-    "tabletovací lis": 3000,
-    "pěstební světlo": 1000,
-    "varná sada": 1800
+    "Sušička": 1500,
+    "Formička": 1000,
+    "UV lampa": 1000,
+    "Květináč": 150,
+    "Destilační sada": 2500,
+    "Extraktor": 2000,
+    "Ochranná maska": 800,
+    "Ochranné rukavice": 100,
+    "Tabletovací lis": 3000,
+    "Pěstební světlo": 1000,
+    "Varná sada": 1800
 }
 DROGY = ["Marihuana", "Kokain", "Metamfetamin", "Pervitin", "Extáze", "Heroin"]
-VYROBA_COOLDOWN = 30  # minutes
+VYROBA_COOLDOWN = 2  # minutes
 RECEPTY = {
-    "marihuana": {
+    "Marihuana": {
         "suroviny": {
-            "semena marihuany": 1,
-            "voda": 2,
-            "hnojivo": 1
+            "Semena marihuany": 1,
+            "Voda": 2,
+            "Hnojivo": 1
         },
         "nastroje": {
-            "květináč": 1,
-            "pěstební světlo": 1
+            "Květináč": 1,
+            "Pěstební světlo": 1
         },
-        "cas": 45  # minut
+        "cas": 1  # minut
     },
-    "kokain": {
+    "Kokain": {
         "suroviny": {
-            "listy koky": 3,
-            "chemikálie": 2
+            "Listy koky": 3,
+            "Chemikálie": 2
         },
         "nastroje": {
-            "extraktor": 1,
-            "ochranné rukavice": 1
+            "Extraktor": 1,
+            "Ochranné rukavice": 1
         },
-        "cas": 60
+        "cas": 1
     },
-    "metamfetamin": {
+    "Metamfetamin": {
         "suroviny": {
-            "chemikálie": 3,
-            "pseudoefedrin": 2
+            "Chemikálie": 3,
+            "Pseudoefedrin": 2
         },
         "nastroje": {
-            "destilační sada": 1,
-            "ochranné rukavice": 1
+            "Destilační sada": 1,
+            "Ochranné rukavice": 1
         },
-        "cas": 50
+        "cas": 1
     },
-    "pervitin": {
+    "Pervitin": {
         "suroviny": {
-            "pseudoefedrin": 3,
-            "čistič": 1
+            "Pseudoefedrin": 3,
+            "Čistič": 1
         },
         "nastroje": {
-            "destilační sada": 1
+            "Destilační sada": 1
         },
-        "cas": 60
+        "cas": 1
     },
-    "extáze": {
+    "Extáze": {
         "suroviny": {
             "MDMA prášek": 2,
-            "barvivo": 1,
-            "plnidlo": 1
+            "Barvivo": 1,
+            "Plnidlo": 1
         },
         "nastroje": {
-            "tabletovací lis": 1
+            "Tabletovací lis": 1
         },
-        "cas": 40
+        "cas": 1
     },
-    "heroin": {
+    "Heroin": {
         "suroviny": {
-            "máková pasta": 2,
-            "ocet": 1,
-            "chemikálie": 1
+            "Máková pasta": 2,
+            "Ocet": 1,
+            "Chemikálie": 1
         },
         "nastroje": {
-            "varná sada": 1,
-            "ochranná maska": 1
+            "Varná sada": 1,
+            "Ochranná maska": 1
         },
-        "cas": 65
+        "cas": 1
     }
 }
-SELHANI_SANSE = 0.3  # 30% šance, že výroba selže
+SELHANI_SANSE = 0.2  # 30% šance, že výroba selže
 # === Databáze ===
 
 DATA_FILE = "data.json"
@@ -349,6 +349,27 @@ def get_or_create_user(user_id):
     data["penize"] = data["hotovost"] + data["bank"]
     
     return data
+
+# 📦 Seznam věcí pro autocomplete (z cen)
+VECI_SEZNAM = list(CENY_VECI.keys())
+
+# 📋 Seznam drog (přizpůsob podle svých receptů)
+DROGY_SEZNAM = ["Marihuana", "Kokain", "Metamfetamin", "Pervitin", "Extáze", "Heroin"]
+
+# Autocomplete pro věci
+async def autocomplete_veci(interaction: discord.Interaction, current: str):
+    return [
+        app_commands.Choice(name=vec, value=vec)
+        for vec in VECI_SEZNAM if current.lower() in vec.lower()
+    ][:25]
+
+# Autocomplete pro drogy
+async def autocomplete_drogy(interaction: discord.Interaction, current: str):
+    return [
+        app_commands.Choice(name=drug, value=drug)
+        for drug in DROGY_SEZNAM if current.lower() in drug.lower()
+    ][:25]
+
 # Načti data
 try:
     with open(DATA_FILE, "r") as f:
@@ -1191,9 +1212,21 @@ async def next(self, interaction2: discord.Interaction, button: Button):
                 await interaction2.followup.send(embed=create_embed(0), view=LeaderboardView())
 
 
-@tree.command(name="prodej-veci", description="Prodej věci jinému hráči")
-@app_commands.describe(cil="Komu chceš věc prodat", vec="Název věci", pocet="Počet kusů", cena="Cena za všechno")
-async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec: str, pocet: int, cena: int):
+@tree.command(name="prodej-veci", description="Prodej věc jinému hráči")
+@app_commands.describe(
+        cil="Komu chceš věc prodat",
+        vec="Název věci",
+        pocet="Kolik kusů chceš prodat",
+        cena="Cena za kus"
+    )
+@app_commands.autocomplete(vec=autocomplete_veci)
+async def prodej_veci(
+        interaction: discord.Interaction,
+        cil: discord.Member,
+        vec: str,
+        pocet: int,
+        cena: int
+    ):
     prodavajici = interaction.user
     if cil.id == prodavajici.id:
         await interaction.response.send_message("❌ Nemůžeš prodat věci sám sobě.", ephemeral=True)
@@ -1283,8 +1316,9 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
     # LOG
     await log_action(bot, interaction.guild, f"🧾 {prodavajici.display_name} prodal {pocet}x {vec} uživateli {cil.display_name} za {cena:,}$.")
 
-@tree.command(name="kup-veci", description="Koupí věc z nabídky")
-@app_commands.describe(veci="Věc, kterou chceš koupit", pocet="Počet kusů")
+@tree.command(name="kup-veci", description="Kup si suroviny nebo nástroje")
+@app_commands.describe(veci="Název věci, kterou chceš koupit", pocet="Počet kusů")
+@app_commands.autocomplete(veci=autocomplete_veci)
 async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
     user = interaction.user
     data = get_or_create_user(user.id)
@@ -1309,8 +1343,9 @@ async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
 
     await log_action(bot, interaction.guild, f"{user.mention} koupil {pocet}x {veci} za {cena:,}$")
 
-@tree.command(name="vyrob", description="Vytvoří drogu z dostupných surovin")
-@app_commands.describe(droga="Název drogy k výrobě", mnozstvi="Počet dávek")
+@tree.command(name="vyrob", description="Vyrob nelegální látku")
+@app_commands.describe(droga="Druh drogy", mnozstvi="Kolik gramů chceš vyrobit")
+@app_commands.autocomplete(droga=autocomplete_drogy)
 async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1):
     uzivatel = interaction.user
     data = get_or_create_user(uzivatel.id)

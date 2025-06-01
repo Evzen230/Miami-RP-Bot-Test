@@ -1,0 +1,26 @@
+{
+    "710192260657971200": {
+        "auta": {},
+        "zbrane": {},
+        "penize": 1234067890,
+        "hotovost": 1234067590,
+        "bank": 0,
+        "last_collect": null,
+        "collect_timestamps": {},
+        "veci": {
+            "Cukr": 10000,
+            "Edrin": 1
+        },
+        "last_vyroba": "2025-06-01T11:10:45.516010"
+    },
+    "1210862009445523506": {
+        "auta": {},
+        "zbrane": {},
+        "penize": 0,
+        "hotovost": 0,
+        "bank": 0,
+        "last_collect": null,
+        "collect_timestamps": {},
+        "veci": {}
+    }
+}
