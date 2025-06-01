@@ -9,7 +9,12 @@ from keep_alive import keep_alive
 import random
 from operator import itemgetter
 from discord.ui import View, Button
+from motor.motor_asyncio import AsyncIOMotorClient
 
+MONGO_URI = "mongodb+srv://Miami_RP_BOT:MftijuaSKr27YxwB@miamirp.y7b8j.mongodb.net/?retryWrites=true&w=majority&appName=MiamiRP"
+mongo_client = AsyncIOMotorClient(MONGO_URI)
+db = mongo_client["miamirpbot"]
+users_collection = db["hraci"]
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 keep_alive()
@@ -219,7 +224,6 @@ CENY_VECI = {
     "Ochranná maska": 800,
     "Ochranné rukavice": 100,
     "Tabletovací lis": 3000,
-    "Pěstební světlo": 1000,
     "Varná sada": 1800
 }
 DROGY = ["Marihuana", "Kokain", "Metamfetamin", "Pervitin", "Extáze", "Heroin"]
@@ -305,58 +309,26 @@ RECEPTY = {
 # === Databáze ===
 
 DATA_FILE = "data.json"
-def get_or_create_user(user_id):
-    user_id = str(user_id)
-    if user_id not in databaze:
-        databaze[user_id] = {
-            "auta": {},
-            "zbrane": {},
-            "penize": 0,
-            "hotovost": 0,
-            "bank": 0,
-            "last_collect": None,
-            "collect_timestamps": {},
-            "veci": {}
-        }
-        save_data()
-        return databaze[user_id]
-    
-    # Convert old formats and ensure all fields exist
-    data = databaze[user_id]
-    
-    # Ensure all money fields exist
-    if "penize" not in data:
-        data["penize"] = 0
-    if "hotovost" not in data:
-        data["hotovost"] = 0
-    if "bank" not in data:
-        data["bank"] = 0
-    if "veci" not in data:
-        data["veci"] = {}
-
-    # Convert old list format to new dict format
-    if isinstance(data.get("auta"), list):
-        auta_dict = {}
-        for auto in data["auta"]:
-            if auto in auta_dict:
-                auta_dict[auto] += 1
-            else:
-                auta_dict[auto] = 1
-        data["auta"] = auta_dict
-
-    if isinstance(data.get("zbrane"), list):
-        zbrane_dict = {}
-        for zbran in data["zbrane"]:
-            if zbran in zbrane_dict:
-                zbrane_dict[zbran] += 1
-            else:
-                zbrane_dict[zbran] = 1
-        data["zbrane"] = zbrane_dict
-
-    # Update total money
-    data["penize"] = data["hotovost"] + data["bank"]
-    
-    return data
+async def get_or_create_user(user_id: int):
+        user = await users_collection.find_one({"_id": str(user_id)})
+        if not user:
+            user = {
+                "_id": str(user_id),
+                "penize": 0,
+                "hotovost": 0,
+                "bank": 0,
+                "auta": {},
+                "zbrane": {},
+                "veci": {},
+                "drogy": {},
+                "last_collect": None,
+                "last_vyroba": None,
+                "collect_timestamps": {}
+            }
+            await users_collection.insert_one(user)
+        return user
+async def save_user(user_id: int, data: dict):
+    await users_collection.replace_one({"_id": str(user_id)}, data)
 
 # 📦 Seznam věcí pro autocomplete (z cen)
 VECI_SEZNAM = list(CENY_VECI.keys())
@@ -1689,5 +1661,19 @@ async def prikazy(interaction: discord.Interaction):
     embed.add_field(name="/prikazy", value="Zobrazí tento seznam příkazů.", inline=False)
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@tree.command(name="try", description="Zkus něco provést a zjisti, jestli se to povedlo.")
+@app_commands.describe(akce="Co se pokoušíš udělat?")
+async def try_cmd(interaction: discord.Interaction, akce: str):
+    user = interaction.user
+    vysledek = random.choice(["✅ Ano", "❌ Ne"])
+
+    embed = discord.Embed(
+        title="🎲 Pokus o akci",
+        description=f"**{user.display_name} se pokusil(a):** `{akce}`\n\n**Výsledek:** {vysledek}",
+        color=discord.Color.green() if "Ano" in vysledek else discord.Color.red()
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 bot.run(TOKEN)
