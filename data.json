@@ -2,18 +2,37 @@
     "710192260657971200": {
         "auta": {},
         "zbrane": {},
-        "penize": 1234067890,
-        "hotovost": 1234067590,
+        "penize": 1231224584,
+        "hotovost": 1231224584,
+        "bank": 0,
+        "last_collect": null,
+        "collect_timestamps": {},
+        "veci": {},
+        "last_vyroba": "2025-06-01T11:59:54.704503",
+        "drogy": {
+            "Pervitin": 10
+        }
+    },
+    "1210862009445523506": {
+        "auta": {},
+        "zbrane": {},
+        "penize": 121236,
+        "hotovost": 121236,
         "bank": 0,
         "last_collect": null,
         "collect_timestamps": {},
         "veci": {
-            "Cukr": 10000,
-            "Edrin": 1
+            "Kv\u011btin\u00e1\u010d": 1,
+            "Voda": 2,
+            "P\u011bstebn\u00ed sv\u011btlo": 1,
+            "Semena marihuany": 3
         },
-        "last_vyroba": "2025-06-01T11:10:45.516010"
+        "last_vyroba": "2025-06-01T11:48:23.307445",
+        "drogy": {
+            "Marihuana": 10
+        }
     },
-    "1210862009445523506": {
+    "792820515491282965": {
         "auta": {},
         "zbrane": {},
         "penize": 0,

@@ -233,9 +233,11 @@ RECEPTY = {
         },
         "nastroje": {
             "Květináč": 1,
-            "Pěstební světlo": 1
+            "UV Lampa": 1,
+            "Sušička": 1
         },
-        "cas": 1  # minut
+        "cas": 45,  # minut za 10g
+        "selhani": 0
     },
     "Kokain": {
         "suroviny": {
@@ -246,7 +248,8 @@ RECEPTY = {
             "Extraktor": 1,
             "Ochranné rukavice": 1
         },
-        "cas": 1
+        "cas": 60,
+        "selhani": 0.10
     },
     "Metamfetamin": {
         "suroviny": {
@@ -257,7 +260,8 @@ RECEPTY = {
             "Destilační sada": 1,
             "Ochranné rukavice": 1
         },
-        "cas": 1
+        "cas": 70,
+        "selhani": 0.12
     },
     "Pervitin": {
         "suroviny": {
@@ -265,9 +269,11 @@ RECEPTY = {
             "Čistič": 1
         },
         "nastroje": {
-            "Destilační sada": 1
+            "Destilační sada": 1,
+            "Ochranné rukavice": 1
         },
-        "cas": 1
+        "cas": 55,
+        "selhani": 0.09
     },
     "Extáze": {
         "suroviny": {
@@ -276,24 +282,26 @@ RECEPTY = {
             "Plnidlo": 1
         },
         "nastroje": {
-            "Tabletovací lis": 1
+            "Formička": 1,
+            "Ochranné rukavice": 1
         },
-        "cas": 1
+        "cas": 50,
+        "selhani": 0.07
     },
     "Heroin": {
         "suroviny": {
-            "Máková pasta": 2,
+            "Mák": 2,
             "Ocet": 1,
             "Chemikálie": 1
         },
         "nastroje": {
-            "Varná sada": 1,
+            "Destilační sada": 1,
             "Ochranná maska": 1
         },
-        "cas": 1
+        "cas": 65,
+        "selhani": 0.11
     }
 }
-SELHANI_SANSE = 0.2  # 30% šance, že výroba selže
 # === Databáze ===
 
 DATA_FILE = "data.json"
@@ -449,7 +457,7 @@ async def pridej_zbran(interaction: discord.Interaction,
                            uzivatel: discord.Member,
                            zbran: str,
                            pocet: int = 1):
-        role_id = 1356305712531243048  # Změň na skutečné ID role
+        role_id = 1378111107780313209  # Změň na skutečné ID role
         if not any(role.id == role_id for role in interaction.user.roles):
             await interaction.response.send_message(
                 "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
@@ -485,7 +493,7 @@ async def odeber_zbran(interaction: discord.Interaction,
                            uzivatel: discord.Member,
                            zbran: str,
                            pocet: int = 1):
-        role_id = 1356305712531243048  # Změň na skutečné ID role
+        role_id = 1378111107780313209  # Změň na skutečné ID role
         if not any(role.id == role_id for role in interaction.user.roles):
             await interaction.response.send_message(
                 "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
@@ -525,7 +533,7 @@ async def pridej_auto(interaction: discord.Interaction,
                           uzivatel: discord.Member,
                           auto: str,
                           pocet: int = 1):
-        role_id = 1356305712531243048  # Změň na skutečné ID role
+        role_id = 1378111107780313209  # Změň na skutečné ID role
         if not any(role.id == role_id for role in interaction.user.roles):
             await interaction.response.send_message(
                 "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
@@ -560,7 +568,7 @@ async def odeber_auto(interaction: discord.Interaction,
                           uzivatel: discord.Member,
                           auto: str,
                           pocet: int = 1):
-        role_id = 1356305712531243048  # Změň na skutečné ID role
+        role_id = 1378111107780313209  # Změň na skutečné ID role
         if not any(role.id == role_id for role in interaction.user.roles):
             await interaction.response.send_message(
                 "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
@@ -592,44 +600,50 @@ async def autocomplete_auto_odebrat(interaction: discord.Interaction,
     # Inventory command
 @tree.command(name="inventory", description="Zobrazí inventář hráče")
 @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš zobrazit")
-async def inventory(interaction: discord.Interaction,
-                        uzivatel: discord.Member = None):
-    uzivatel = uzivatel or interaction.user
-    data = get_or_create_user(uzivatel.id)
+async def inventory(interaction: discord.Interaction, uzivatel: discord.Member = None):
+        uzivatel = uzivatel or interaction.user
+        data = get_or_create_user(uzivatel.id)
 
-    auta = data.get("auta", {})
-    zbrane = data.get("zbrane", {})
-    veci = data.get("veci", {})
+        auta = data.get("auta", {})
+        zbrane = data.get("zbrane", {})
+        veci = data.get("veci", {})
+        drogy = data.get("drogy", {})
 
-    auta_text = "\n".join(f"🚗 {auto} ×{pocet}"
-                          for auto, pocet in auta.items()) or "Žádná"
-    zbrane_text = "\n".join(f"🔫 {zbran} ×{pocet}"
-                            for zbran, pocet in zbrane.items()) or "Žádné"
-    veci_text = "\n".join(f"📦 {vec} ×{pocet}"
-                          for vec, pocet in veci.items()) or "Žádné"
+        auta_text = "\n".join(f"🚗 {auto} ×{pocet}" for auto, pocet in auta.items()) or "Žádná"
+        zbrane_text = "\n".join(f"🔫 {zbran} ×{pocet}" for zbran, pocet in zbrane.items()) or "Žádné"
+        veci_text = "\n".join(f"📦 {nazev} ×{pocet}" for nazev, pocet in veci.items()) or "Žádné"
+        drogy_text = "\n".join(f"💊 {nazev} ×{gramy}g" for nazev, gramy in drogy.items())
 
-    embed = discord.Embed(
-        title=f"📋 Inventář uživatele {uzivatel.display_name}",
-        color=discord.Color.blue())
-    embed.add_field(name="Auta", value=auta_text, inline=False)
-    embed.add_field(name="Zbraně", value=zbrane_text, inline=False)
-    embed.add_field(name="Věci", value=veci_text, inline=False)
+        embed = discord.Embed(
+            title=f"📋 Inventář uživatele {uzivatel.display_name}",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Auta", value=auta_text, inline=False)
+        embed.add_field(name="Zbraně", value=zbrane_text, inline=False)
+        embed.add_field(name="Věci", value=veci_text, inline=False)
 
-    await interaction.response.send_message(embed=embed)
+        if drogy:  # ✅ Přidá se pouze pokud nějaké drogy existují
+            embed.add_field(name="Drogy", value=drogy_text, inline=False)
+
+        await interaction.response.send_message(embed=embed)
+
 
 # Reset inventory command
 @tree.command(name="reset-inventory", description="Resetuje celý inventář hráče (admin)")
 @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš vymazat")
 async def reset_inventory(interaction: discord.Interaction, uzivatel: discord.Member):
-    role_id = 1356305712531243048  # Změň na skutečné ID role
-    if not any(role.id == role_id for role in interaction.user.roles):
-        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
-        return
-    data = get_or_create_user(uzivatel.id)
-    data["auta"] = {}
-    data["zbrane"] = {}
-    save_data()
-    await interaction.response.send_message(f"♻️ Inventář hráče {uzivatel.display_name} byl úspěšně resetován.")
+        role_id = 1378111107780313209  # Změň na skutečné ID role
+        if not any(role.id == role_id for role in interaction.user.roles):
+            await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+            return
+        data = get_or_create_user(uzivatel.id)
+        data["auta"] = {}
+        data["zbrane"] = {}
+        data["veci"] = {}
+        data["drogy"] = {}
+        save_data()
+        await interaction.response.send_message(f"♻️ Inventář hráče {uzivatel.display_name} byl úspěšně resetován.")
+
 
 # === PŘÍKAZY NA PENÍZE ===
 
@@ -660,7 +674,7 @@ async def balance(interaction: discord.Interaction, uzivatel: discord.Member = N
 @tree.command(name="pridej-penize", description="Přidá peníze hráči (admin)")
 @app_commands.describe(uzivatel="Uživatel, kterému chceš přidat peníze", castka="Kolik peněz chceš přidat")
 async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: int):
-    role_id = 1356305712531243048  # Změň na ID role s oprávněním
+    role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
@@ -674,7 +688,7 @@ async def pridej_penize(interaction: discord.Interaction, uzivatel: discord.Memb
 @tree.command(name="odeber-penize", description="Odebere peníze hráči (admin)")
 @app_commands.describe(uzivatel="Uživatel, kterému chceš odebrat peníze", castka="Kolik peněz chceš odebrat (nebo 'all' pro všechny)")
 async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Member, castka: str):
-    role_id = 1356305712531243048  # Změň na ID role s oprávněním
+    role_id = 1378111107780313209  # Změň na ID role s oprávněním
     if not any(role.id == role_id for role in interaction.user.roles):
         await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
         return
@@ -713,16 +727,16 @@ async def odeber_penize(interaction: discord.Interaction, uzivatel: discord.Memb
 @tree.command(name="reset-penize", description="Resetuje peníze hráče (admin)")
 @app_commands.describe(uzivatel="Uživatel, jehož peníze chceš vynulovat")
 async def reset_penize(interaction: discord.Interaction, uzivatel: discord.Member):
-    role_id = 1356305712531243048  # Změň na ID role s oprávněním
-    if not any(role.id == role_id for role in interaction.user.roles):
-        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
-        return
-    data = get_or_create_user(uzivatel.id)
-    data["hotovost"] = 0
-    data["bank"] = 0
-    data["penize"] = 0
-    save_data()
-    await interaction.response.send_message(f"♻️ Peníze hráče {uzivatel.display_name} byly vynulovány.")
+        role_id = 1378111107780313209  # Změň na ID role s oprávněním
+        if not any(role.id == role_id for role in interaction.user.roles):
+            await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+            return
+        data = get_or_create_user(uzivatel.id)
+        data["hotovost"] = 0
+        data["bank"] = 0
+        data["penize"] = 0
+        save_data()
+        await interaction.response.send_message(f"♻️ Peníze hráče {uzivatel.display_name} byly vynulovány.")
 
 # Pay command
 
@@ -1159,162 +1173,143 @@ async def collect(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 @tree.command(name="leaderboard", description="Zobrazí žebříček nejbohatších hráčů")
-async def leaderboard(interaction: discord.Interaction):
-    await interaction.response.defer()  # Načítání, pokud to trvá déle
+@app_commands.describe(stranka="Číslo stránky leaderboardu")
+async def leaderboard(interaction: discord.Interaction, stranka: int = 1):
+    with open("data.json", "r") as f:
+        db = json.load(f)
 
-    # Seřadit uživatele podle celkových peněz (hotovost + bank)
-    sorted_users = sorted([
-        {
-            "user_id": int(uid),
-            "total": user["hotovost"] + user["bank"]
-        }
-        for uid, user in databaze.items()
-    ], key=itemgetter("total"), reverse=True)
+    if not db:
+        await interaction.response.send_message("❌ Žádná data k zobrazení.", ephemeral=True)
+        return
 
-    # Parametry stránkování
-    per_page = 10
-    total_pages = (len(sorted_users) + per_page - 1) // per_page
+    leaderboard = []
+    for user_id, data in db.items():
+        total = data.get("hotovost", 0) + data.get("bank", 0)
+        leaderboard.append((int(user_id), total))
 
-# Embed render funkce
-def create_embed(page: int):
-    start = page * per_page
-    end = start + per_page
-    embed = discord.Embed(title="💰 Leaderboard – Nejbohatší hráči", color=discord.Color.gold())
-    embed.set_footer(text=f"Stránka {page + 1}/{total_pages}")
+    leaderboard.sort(key=lambda x: x[1], reverse=True)
 
-    for i, entry in enumerate(sorted_users[start:end], start=start + 1):
-        member = interaction.guild.get_member(entry["user_id"])
-        name = member.display_name if member else f"Uživatel {entry['user_id']}"
+    stranka -= 1
+    zaznamu_na_stranku = 10
+    zacatek = stranka * zaznamu_na_stranku
+    konec = zacatek + zaznamu_na_stranku
+    strankovany = leaderboard[zacatek:konec]
+
+    if not strankovany:
+        await interaction.response.send_message("❌ Tato stránka neexistuje.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="💰 Leaderboard – Nejbohatší hráči",
+        description=f"Stránka {stranka + 1}/{(len(leaderboard) + 9) // 10}",
+        color=discord.Color.gold()
+    )
+
+    for index, (user_id, total) in enumerate(strankovany, start=zacatek + 1):
+        user = interaction.guild.get_member(user_id)
+        jmeno = user.display_name if user else f"<@{user_id}>"
         embed.add_field(
-            name=f"#{i} – {name}",
-            value=f"💵 {entry['total']:,}$",
+            name=f"#{index} – {jmeno}",
+            value=f"💵 {total:,} $",
             inline=False
         )
-    return embed
 
-# View s tlačítky
-class LeaderboardView(View):
-        def __init__(self):
-            super().__init__(timeout=60)
-            self.page = 0
+    await interaction.response.send_message(embed=embed)
 
-@discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
-async def prev(self, interaction2: discord.Interaction, button: Button):
-            if self.page > 0:
-                self.page -= 1
-                await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
-
-@discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary)
-async def next(self, interaction2: discord.Interaction, button: Button):
-            if self.page < total_pages - 1:
-                self.page += 1
-                await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
-                await interaction2.followup.send(embed=create_embed(0), view=LeaderboardView())
-
-
-@tree.command(name="prodej-veci", description="Prodej věc jinému hráči")
+@tree.command(name="prodej-veci", description="Prodej věc nebo drogu jinému hráči")
 @app_commands.describe(
-        cil="Komu chceš věc prodat",
-        vec="Název věci",
-        pocet="Kolik kusů chceš prodat",
-        cena="Cena za kus"
-    )
-@app_commands.autocomplete(vec=autocomplete_veci)
-async def prodej_veci(
-        interaction: discord.Interaction,
-        cil: discord.Member,
-        vec: str,
-        pocet: int,
-        cena: int
-    ):
+    cil="Komu chceš věc nebo drogu prodat",
+    vec="Název věci nebo drogy",
+    mnozstvi="Kolik kusů/gramů chceš prodat",
+    cena="Cena za vše v $"
+)
+@app_commands.autocomplete(vec=autocomplete_veci_drogy)
+async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec: str, mnozstvi: int, cena: int):
     prodavajici = interaction.user
-    if cil.id == prodavajici.id:
-        await interaction.response.send_message("❌ Nemůžeš prodat věci sám sobě.", ephemeral=True)
+    if prodavajici.id == cil.id:
+        await interaction.response.send_message("❌ Nemůžeš prodávat sám sobě.", ephemeral=True)
         return
 
-    prodavajici_data = get_or_create_user(prodavajici.id)
-    kupujici_data = get_or_create_user(cil.id)
+    data_prodejce = get_or_create_user(prodavajici.id)
+    data_kupce = get_or_create_user(cil.id)
 
-    vlastnene = prodavajici_data.get("veci", {}).get(vec, 0)
-    if vlastnene < pocet:
-        await interaction.response.send_message(f"❌ Nemáš dostatek `{vec}` k prodeji. Máš {vlastnene}.", ephemeral=True)
+    # Inventář
+    inventar = data_prodejce.get("veci", {}) | data_prodejce.get("drogy", {})
+    if vec not in inventar or inventar[vec] < mnozstvi:
+        await interaction.response.send_message("❌ Nemáš dostatek tohoto předmětu nebo drogy.", ephemeral=True)
         return
 
-    if get_total_money(kupujici_data) < cena:
-        await interaction.response.send_message(f"❌ {cil.display_name} nemá dostatek peněz na nákup.", ephemeral=True)
-        return
+    embed = discord.Embed(
+        title="💸 Nabídka k prodeji",
+        description=f"{prodavajici.mention} nabízí `{mnozstvi}x {vec}` za `{cena:,}$` {cil.mention}.",
+        color=discord.Color.green()
+    )
 
-    # Vytvoření potvrzovacího embedu a tlačítek
-    class PotvrzeniView(View):
+    # Tlačítka
+    class Potvrzeni(discord.ui.View):
         def __init__(self, timeout=60):
             super().__init__(timeout=timeout)
-            self.value = None
+            self.prodej_potvrzen = None
 
-        @discord.ui.button(label="✅ Potvrdit koupi", style=discord.ButtonStyle.green)
-        async def potvrdit(self, interaction_button: discord.Interaction, button: Button):
-            if interaction_button.user != cil:
-                await interaction_button.response.send_message("❌ Jen kupující může potvrdit koupi.", ephemeral=True)
+        @discord.ui.button(label="✅ Přijmout", style=discord.ButtonStyle.success)
+        async def prijmout(self, interaction_button: discord.Interaction, button: discord.ui.Button):
+            if interaction_button.user.id != cil.id:
+                await interaction_button.response.send_message("❌ Tohle není tvoje nabídka.", ephemeral=True)
                 return
-            self.value = True
+            self.prodej_potvrzen = True
             self.stop()
-            await interaction_button.response.send_message("✅ Potvrzeno. Transakce probíhá...", ephemeral=True)
+            await interaction_button.response.defer()
 
-        @discord.ui.button(label="❌ Zamítnout", style=discord.ButtonStyle.red)
-        async def zamitnout(self, interaction_button: discord.Interaction, button: Button):
-            if interaction_button.user != cil:
-                await interaction_button.response.send_message("❌ Jen kupující může odmítnout.", ephemeral=True)
+        @discord.ui.button(label="❌ Odmítnout", style=discord.ButtonStyle.danger)
+        async def odmitnout(self, interaction_button: discord.Interaction, button: discord.ui.Button):
+            if interaction_button.user.id != cil.id:
+                await interaction_button.response.send_message("❌ Tohle není tvoje nabídka.", ephemeral=True)
                 return
-            self.value = False
+            self.prodej_potvrzen = False
             self.stop()
-            await interaction_button.response.send_message("❌ Obchod byl zrušen.", ephemeral=True)
+            await interaction_button.response.defer()
 
-    view = PotvrzeniView()
-    embed = discord.Embed(
-        title="💸 Potvrzení obchodu",
-        description=f"{prodavajici.mention} prodává `{pocet}x {vec}` za `{cena:,}$`\n\n{cil.mention}, chceš koupit?",
-        color=discord.Color.orange()
-    )
+    view = Potvrzeni()
+    await interaction.response.send_message(embed=embed, view=view)
 
-    await interaction.response.send_message(content=cil.mention, embed=embed, view=view)
     await view.wait()
 
-    if view.value is None:
-        await interaction.followup.send("⏰ Čas na potvrzení vypršel.", ephemeral=True)
-        return
-    elif view.value is False:
-        await interaction.followup.send("❌ Obchod nebyl potvrzen.", ephemeral=True)
+    if view.prodej_potvrzen is None:
+        await interaction.edit_original_response(content="⏳ Čas na odpověď vypršel.", embed=None, view=None)
         return
 
-    # Dokončení transakce
-    prodavajici_data["veci"][vec] -= pocet
-    if prodavajici_data["veci"][vec] == 0:
-        del prodavajici_data["veci"][vec]
+    if not view.prodej_potvrzen:
+        await interaction.edit_original_response(content="❌ Kupující odmítl nabídku.", embed=None, view=None)
+        return
 
-    kupujici_data.setdefault("veci", {})
-    kupujici_data["veci"][vec] = kupujici_data["veci"].get(vec, 0) + pocet
+    if data_kupce["hotovost"] < cena:
+        await interaction.edit_original_response(content="❌ Kupující nemá dost peněz.", embed=None, view=None)
+        return
 
-    # Remove money from buyer (hotovost first, then bank)
-    remaining_to_remove = cena
-    if kupujici_data["hotovost"] >= remaining_to_remove:
-        kupujici_data["hotovost"] -= remaining_to_remove
+    # Odeber prodejci
+    if vec in data_prodejce.get("veci", {}):
+        data_prodejce["veci"][vec] -= mnozstvi
+        if data_prodejce["veci"][vec] <= 0:
+            del data_prodejce["veci"][vec]
+        data_kupce.setdefault("veci", {})[vec] = data_kupce["veci"].get(vec, 0) + mnozstvi
     else:
-        remaining_to_remove -= kupujici_data["hotovost"]
-        kupujici_data["hotovost"] = 0
-        kupujici_data["bank"] -= remaining_to_remove
+        data_prodejce["drogy"][vec] -= mnozstvi
+        if data_prodejce["drogy"][vec] <= 0:
+            del data_prodejce["drogy"][vec]
+        data_kupce.setdefault("drogy", {})[vec] = data_kupce["drogy"].get(vec, 0) + mnozstvi
 
-    # Add money to seller's hotovost
-    prodavajici_data["hotovost"] += cena
-    
-    # Update total money
-    kupujici_data["penize"] = kupujici_data["hotovost"] + kupujici_data["bank"]
-    prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
+    # Převod peněz
+    data_prodejce["hotovost"] += cena
+    data_kupce["hotovost"] -= cena
 
     save_data()
 
-    await interaction.followup.send(f"✅ Obchod dokončen. {cil.mention} koupil `{pocet}x {vec}` od {prodavajici.mention} za `{cena:,}$`.")
+    await interaction.edit_original_response(
+        content=f"✅ {cil.mention} koupil {mnozstvi}x `{vec}` za {cena:,}$ od {prodavajici.mention}.",
+        embed=None,
+        view=None
+    )
 
-    # LOG
-    await log_action(bot, interaction.guild, f"🧾 {prodavajici.display_name} prodal {pocet}x {vec} uživateli {cil.display_name} za {cena:,}$.")
 
 @tree.command(name="kup-veci", description="Kup si suroviny nebo nástroje")
 @app_commands.describe(veci="Název věci, kterou chceš koupit", pocet="Počet kusů")
@@ -1346,83 +1341,326 @@ async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
 @tree.command(name="vyrob", description="Vyrob nelegální látku")
 @app_commands.describe(droga="Druh drogy", mnozstvi="Kolik gramů chceš vyrobit")
 @app_commands.autocomplete(droga=autocomplete_drogy)
-async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1):
+async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 10):
     uzivatel = interaction.user
     data = get_or_create_user(uzivatel.id)
 
-    # Cooldown kontrola
-    posledni = data.get("last_vyroba")
-    if posledni:
-        posledni = datetime.datetime.fromisoformat(posledni)
-        if (datetime.datetime.utcnow() - posledni).total_seconds() < VYROBA_COOLDOWN * 60:
-            zbyva = VYROBA_COOLDOWN - int((datetime.datetime.utcnow() - posledni).total_seconds() / 60)
-            await interaction.response.send_message(
-                f"❌ Musíš počkat ještě {zbyva} minut, než můžeš znovu vyrábět.", ephemeral=True)
-            return
+    if mnozstvi % 10 != 0 or mnozstvi <= 0:
+        return await interaction.response.send_message("❌ Výroba je možná pouze po 10g dávkách (např. 10, 20, 30...).", ephemeral=True)
 
     recept = RECEPTY.get(droga)
     if not recept:
-        await interaction.response.send_message("❌ Tato droga neexistuje.", ephemeral=True)
-        return
+        return await interaction.response.send_message("❌ Tato droga neexistuje.", ephemeral=True)
+
+    nyni = datetime.datetime.utcnow()
+    posledni = data.get("last_vyroba")
+    if posledni:
+        rozdil = (nyni - datetime.datetime.fromisoformat(posledni)).total_seconds()
+        if rozdil < VYROBA_COOLDOWN * 60:
+            zbyva = int((VYROBA_COOLDOWN * 60 - rozdil) / 60)
+            return await interaction.response.send_message(f"⏳ Musíš počkat {zbyva} minut před další výrobou.", ephemeral=True)
 
     veci = data.get("veci", {})
     drogy = data.get("drogy", {})
 
-    # Ověření nástrojů
+    davky = mnozstvi // 10
+
+    # Zkontroluj suroviny
+    for surovina, pocet in recept["suroviny"].items():
+        if veci.get(surovina, 0) < pocet * davky:
+            return await interaction.response.send_message(f"❌ Nemáš dostatek `{surovina}`.", ephemeral=True)
+
+    # Zkontroluj nástroje
     for nastroj, pocet in recept["nastroje"].items():
         if veci.get(nastroj, 0) < pocet:
-            await interaction.response.send_message(f"❌ Chybí ti nástroj: `{nastroj}`", ephemeral=True)
-            return
+            return await interaction.response.send_message(f"❌ Chybí ti nástroj `{nastroj}`.", ephemeral=True)
 
-    # Ověření surovin
+    # Odečti suroviny
     for surovina, pocet in recept["suroviny"].items():
-        if veci.get(surovina, 0) < pocet * mnozstvi:
-            await interaction.response.send_message(f"❌ Nemáš dostatek suroviny: `{surovina}`", ephemeral=True)
-            return
-
-    # Odečtení surovin
-    for surovina, pocet in recept["suroviny"].items():
-        veci[surovina] -= pocet * mnozstvi
+        veci[surovina] -= pocet * davky
         if veci[surovina] <= 0:
             veci.pop(surovina)
 
-    # Zapsání času poslední výroby
-    data["last_vyroba"] = datetime.datetime.utcnow().isoformat()
-    celkovy_cas = recept["cas"] * mnozstvi
+    data["last_vyroba"] = nyni.isoformat()
+    celkovy_cas = recept["cas"] * davky
+    save_data()
 
     await interaction.response.send_message(
-        f"🧪 Výroba {mnozstvi}x `{droga}` začala. Dokončení za {celkovy_cas} minut...", ephemeral=True)
+        f"🧪 Začal jsi vyrábět {mnozstvi}g `{droga}`.\n⏳ Dokončení za {celkovy_cas} minut...", ephemeral=True)
 
-    save_data()
+    # ASYNC VÝROBA
+    async def dokonci_vyrobu():
+        await asyncio.sleep(celkovy_cas * 60)
 
-    # Spánek – simulace výroby
-    await asyncio.sleep(celkovy_cas * 60)
+        # Šance na selhání
+        if random.random() < recept["selhani"]:
+            for nastroj, pocet in recept["nastroje"].items():
+                if nastroj in veci:
+                    veci[nastroj] -= pocet
+                    if veci[nastroj] <= 0:
+                        veci.pop(nastroj)
+            save_data()
+            try:
+                await uzivatel.send(f"❌ Výroba {mnozstvi}g `{droga}` selhala. Přišel jsi o suroviny i nástroje.")
+            except:
+                pass
+            return
 
-    # SELHÁNÍ? 🎲
-    if random.random() < SELHANI_SANSE:
-        # ODEBERE nástroje
-        for nastroj, pocet in recept["nastroje"].items():
-            if nastroj in veci:
-                veci[nastroj] -= pocet
-                if veci[nastroj] <= 0:
-                    veci.pop(nastroj)
-
+        # Výroba úspěšná
+        drogy[droga] = drogy.get(droga, 0) + mnozstvi
+        data["drogy"] = drogy
         save_data()
         try:
-            await uzivatel.send(f"❌ Výroba {droga} selhala. Přišel jsi o suroviny i nástroje.")
+            await uzivatel.send(f"✅ Výroba dokončena: {mnozstvi}g `{droga}` bylo přidáno do inventáře.")
         except:
             pass
+
+    asyncio.create_task(dokonci_vyrobu())
+
+async def autocomplete_drogy_ve_inventari(interaction: discord.Interaction, current: str):
+    data = get_or_create_user(interaction.user.id)
+    drogy = data.get("drogy", {})
+    # Filtruj drogy podle aktuálního textu, vracej max 25 položek
+    options = [
+        app_commands.Choice(name=droga, value=droga)
+        for droga in drogy.keys()
+        if current.lower() in droga.lower()
+    ][:25]
+    return options
+
+@tree.command(name="pozij-drogu", description="Požij drogu z inventáře a získej dočasné účinky")
+@app_commands.describe(droga="Droga, kterou chceš použít", mnozstvi="Kolik gramů chceš požít")
+@app_commands.autocomplete(droga=autocomplete_drogy_ve_inventari)
+async def pozij_drogu(interaction: discord.Interaction, droga: str, mnozstvi: int):
+    uzivatel = interaction.user
+    data = get_or_create_user(uzivatel.id)
+
+    drogy = data.get("drogy", {})
+
+    if droga not in drogy:
+        await interaction.response.send_message("❌ Tuto drogu nemáš v inventáři.", ephemeral=True)
         return
 
-    # VÝROBA ÚSPĚŠNÁ ✅
-    if "drogy" not in data:
-        data["drogy"] = {}
-    data["drogy"][droga] = data["drogy"].get(droga, 0) + mnozstvi * 10
+    if mnozstvi <= 0:
+        await interaction.response.send_message("❌ Množství musí být větší než 0.", ephemeral=True)
+        return
+
+    if drogy[droga] < mnozstvi:
+        await interaction.response.send_message(f"❌ Máš pouze {drogy[droga]}g `{droga}`.", ephemeral=True)
+        return
+
+    # Odečíst z inventáře
+    drogy[droga] -= mnozstvi
+    if drogy[droga] <= 0:
+        del drogy[droga]
+    data["drogy"] = drogy
     save_data()
 
-    try:
-        await uzivatel.send(f"✅ Výroba úspěšná: {mnozstvi * 10}g `{droga}` bylo přidáno do inventáře.")
-    except:
-        pass
+    UCINKY_DROG = {
+        "Marihuana": ("🧘 Uklidnění + zpomalení reakce", 5),
+        "Kokain": ("⚡ Zvýšení energie a agresivity", 8),
+        "Metamfetamin": ("🔥 Extrémní bdělost a hyperaktivita", 10),
+        "Pervitin": ("🌀 Silná euforie a soustředění", 10),
+        "Extáze": ("💖 Euforie a emoční vlny", 7),
+        "Heroin": ("😴 Ospalost a utlumení bolesti", 12),
+    }
+
+    ucinek_text, trvani = UCINKY_DROG.get(droga, ("❓ Neznámé účinky", 5))
+
+    embed = discord.Embed(
+        title=f"💊 {droga} použita",
+        description=(
+            f"**{uzivatel.display_name}** právě požil {mnozstvi}g `{droga}`.\n\n"
+            f"🧠 **Účinek:** {ucinek_text}\n"
+            f"⏳ **Doba trvání účinku:** {trvani}*{mnozstvi} minut (OOC)"
+        ),
+        color=discord.Color.purple()
+    )
+    await interaction.response.send_message(embed=embed)
+
+
+@tree.command(name="recepty", description="Zobrazí seznam receptů pro výrobu drog")
+async def recepty(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="🧪 Recepty na výrobu drog",
+        description="Zde je seznam všech dostupných drog, jejich požadavků a šancí na selhání.",
+        color=discord.Color.dark_red()
+    )
+
+    for droga, info in RECEPTY.items():
+        suroviny = "\n".join(f"- {nazev} ×{pocet}" for nazev, pocet in info["suroviny"].items())
+        nastroje = "\n".join(f"- {nazev} ×{pocet}" for nazev, pocet in info["nastroje"].items())
+        cas = info["cas"]
+        selhani = int(info["selhani"] * 100)
+
+        embed.add_field(
+            name=f"💊 {droga}",
+            value=(
+                f"**🧂 Suroviny:**\n{suroviny}\n"
+                f"**🛠️ Nástroje:**\n{nastroje}\n"
+                f"⏳ **Čas výroby:** {cas} minut / 10g\n"
+                f"⚠️ **Šance na selhání:** {selhani}%"
+            ),
+            inline=False
+        )
+
+    await interaction.response.send_message(embed=embed)
+    
+ADMIN_ROLE_ID = 1378111107780313209  # Změň na ID admin role
+
+def is_admin(user: discord.User):
+    return any(role.id == ADMIN_ROLE_ID for role in user.roles)
+
+@tree.command(name="pridej-veci", description="Přidej věci do inventáře uživatele (admin)")
+@app_commands.describe(uzivatel="Uživatel, kterému přidáš věci", vec="Název věci", mnozstvi="Počet kusů")
+@app_commands.autocomplete(vec=autocomplete_veci)  # Pokud máš autocomplete věcí
+async def pridej_veci(interaction: discord.Interaction, uzivatel: discord.Member, vec: str, mnozstvi: int):
+    if not is_admin(interaction.user):
+        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+        return
+
+    data = get_or_create_user(uzivatel.id)
+    veci = data.get("veci", {})
+    veci[vec] = veci.get(vec, 0) + mnozstvi
+    data["veci"] = veci
+    save_data()
+
+    await interaction.response.send_message(f"✅ Přidáno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
+
+
+@tree.command(name="pridej-drogy", description="Přidej drogy do inventáře uživatele (admin)")
+@app_commands.describe(uzivatel="Uživatel, kterému přidáš drogy", droga="Název drogy", mnozstvi="Počet gramů")
+@app_commands.autocomplete(droga=autocomplete_drogy)  # Pokud máš autocomplete drog
+async def pridej_drogy(interaction: discord.Interaction, uzivatel: discord.Member, droga: str, mnozstvi: int):
+    if not is_admin(interaction.user):
+        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+        return
+
+    data = get_or_create_user(uzivatel.id)
+    drogy = data.get("drogy", {})
+    drogy[droga] = drogy.get(droga, 0) + mnozstvi
+    data["drogy"] = drogy
+    save_data()
+
+    await interaction.response.send_message(f"✅ Přidáno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)
+
+ADMIN_ROLE_ID = 1378111107780313209  # Změň na ID admin role
+POLICE_ROLE_ID = 1378711315119607808  # Změň na ID role policie
+
+def has_permission(user: discord.User):
+    return any(role.id in (ADMIN_ROLE_ID, POLICE_ROLE_ID) for role in user.roles)
+
+# Autocomplete pro odeber-veci podle inventáře cílového uživatele
+async def autocomplete_odeber_veci(interaction: discord.Interaction, current: str):
+    # Zkus získat cílového uživatele z argumentů příkazu
+    uzivatel = None
+    for option in interaction.data.get("options", []):
+        if option["name"] == "uzivatel":
+            try:
+                uzivatel = await interaction.guild.fetch_member(option["value"])
+            except:
+                pass
+            break
+    if not uzivatel:
+        return []
+
+    data = get_or_create_user(uzivatel.id)
+    veci = data.get("veci", {})
+    # Filtruj podle aktuálního textu
+    return [
+        app_commands.Choice(name=vec, value=vec)
+        for vec in veci.keys() if current.lower() in vec.lower()
+    ][:25]
+
+# Autocomplete pro odeber-drogy podle inventáře cílového uživatele
+async def autocomplete_odeber_drogy(interaction: discord.Interaction, current: str):
+    uzivatel = None
+    for option in interaction.data.get("options", []):
+        if option["name"] == "uzivatel":
+            try:
+                uzivatel = await interaction.guild.fetch_member(option["value"])
+            except:
+                pass
+            break
+    if not uzivatel:
+        return []
+
+    data = get_or_create_user(uzivatel.id)
+    drogy = data.get("drogy", {})
+    return [
+        app_commands.Choice(name=droga, value=droga)
+        for droga in drogy.keys() if current.lower() in droga.lower()
+    ][:25]
+
+@tree.command(name="odeber-veci", description="Odeber věci z inventáře uživatele (admin/policie)")
+@app_commands.describe(uzivatel="Uživatel, kterému odebereš věci", vec="Název věci", mnozstvi="Počet kusů")
+@app_commands.autocomplete(vec=autocomplete_odeber_veci)
+async def odeber_veci(interaction: discord.Interaction, uzivatel: discord.Member, vec: str, mnozstvi: int):
+    if not has_permission(interaction.user):
+        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+        return
+
+    data = get_or_create_user(uzivatel.id)
+    veci = data.get("veci", {})
+    if vec not in veci or veci[vec] < mnozstvi:
+        await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}× `{vec}`.", ephemeral=True)
+        return
+
+    veci[vec] -= mnozstvi
+    if veci[vec] <= 0:
+        del veci[vec]
+    data["veci"] = veci
+    save_data()
+
+    await interaction.response.send_message(f"✅ Odebráno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
+
+
+@tree.command(name="odeber-drogy", description="Odeber drogy z inventáře uživatele (admin/policie)")
+@app_commands.describe(uzivatel="Uživatel, kterému odebereš drogy", droga="Název drogy", mnozstvi="Počet gramů")
+@app_commands.autocomplete(droga=autocomplete_odeber_drogy)
+async def odeber_drogy(interaction: discord.Interaction, uzivatel: discord.Member, droga: str, mnozstvi: int):
+    if not has_permission(interaction.user):
+        await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
+        return
+
+    data = get_or_create_user(uzivatel.id)
+    drogy = data.get("drogy", {})
+    if droga not in drogy or drogy[droga] < mnozstvi:
+        await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}g `{droga}`.", ephemeral=True)
+        return
+
+    drogy[droga] -= mnozstvi
+    if drogy[droga] <= 0:
+        del drogy[droga]
+    data["drogy"] = drogy
+    save_data()
+
+    await interaction.response.send_message(f"✅ Odebráno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)
+
+@tree.command(name="prikazy", description="Zobrazí seznam všech dostupných příkazů a jejich popis")
+async def prikazy(interaction: discord.Interaction):
+    embed = discord.Embed(title="📜 Seznam příkazů", color=discord.Color.green())
+
+    embed.add_field(name="/inventory [uživatel]", value="Zobrazí inventář hráče (auta, zbraně, věci, drogy).", inline=False)
+    embed.add_field(name="/koupit-zbran [zbraň] [počet]", value="Koupíš zbraň z nabídky, pokud máš oprávnění a peníze.", inline=False)
+    embed.add_field(name="/prodej-zbran [uživatel] [zbraň] [počet]", value="Prodáš zbraň jinému hráči, s potvrzením od kupujícího.", inline=False)
+    embed.add_field(name="/koupit-auto [auto]", value="Koupíš auto z nabídky.", inline=False)
+    embed.add_field(name="/prodej-auto [uživatel] [auto]", value="Prodáš auto jinému hráči, s potvrzením od kupujícího.", inline=False)
+    embed.add_field(name="/kup-veci [věc] [počet]", value="Koupíš věci potřebné pro výrobu nelegálních látek.", inline=False)
+    embed.add_field(name="/prodej-veci [uživatel] [věc] [počet] [cena]", value="Prodáš věci jinému hráči za určenou cenu.", inline=False)
+    embed.add_field(name="/vytvor [droga] [gramy]", value="Vyrobíš nelegální látku (vyžaduje nástroje a suroviny).", inline=False)
+    embed.add_field(name="/vyrob [droga] [gramy]", value="Začne výrobu drogy, trvá určitou dobu, může selhat.", inline=False)
+    embed.add_field(name="/pouzit-drogu [droga] [gramy]", value="Použiješ drogu ze svého inventáře, aktivují se efekty.", inline=False)
+    embed.add_field(name="/balance", value="Zobrazí stav peněženky a bankovního účtu.", inline=False)
+    embed.add_field(name="/vyber [částka]", value="Vybereš peníze z banky do peněženky.", inline=False)
+    embed.add_field(name="/vloz [částka]", value="Vložíš peníze z peněženky na bankovní účet.", inline=False)
+    embed.add_field(name="/collect", value="Vybereš týdenní odměnu podle rolí.", inline=False)
+    embed.add_field(name="/leaderboard", value="Zobrazí žebříček hráčů podle jejich peněz.", inline=False)
+    embed.add_field(name="/odeber-veci [uživatel] [věc] [počet]", value="Odebere věci z inventáře hráče (pouze policie/admin).", inline=False)
+    embed.add_field(name="/odeber-drogy [uživatel] [droga] [gramy]", value="Odebere drogy z inventáře hráče (pouze policie/admin).", inline=False)
+    embed.add_field(name="/reset-inventory [uživatel]", value="Resetuje celý inventář hráče (pouze policie/admin).", inline=False)
+    embed.add_field(name="/prikazy", value="Zobrazí tento seznam příkazů.", inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 bot.run(TOKEN)
