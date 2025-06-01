@@ -11,7 +11,7 @@ from operator import itemgetter
 from discord.ui import View, Button
 
 
-TOKEN = "MTI5MzYxMzAyMDg5MDc5NjA5Mw.GKKbKL.qDR5rQweqgJrE8w2q4V9ZAPrl3Q4pdEDiSGcg4"
+TOKEN = "MTI5MzYxMzAyMDg5MDc5NjA5Mw.G3KrMY.RTJYMScW6qFrimjJpFwayCyqiKFibQ7MUWNF5s"
 keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
@@ -1174,24 +1174,23 @@ def create_embed(page: int):
     return embed
 
 # View s tlačítky
-    class LeaderboardView(View):
+class LeaderboardView(View):
         def __init__(self):
             super().__init__(timeout=60)
             self.page = 0
 
-        @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
-        async def prev(self, interaction2: discord.Interaction, button: Button):
+@discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary)
+async def prev(self, interaction2: discord.Interaction, button: Button):
             if self.page > 0:
                 self.page -= 1
                 await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
 
-        @discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary)
-        async def next(self, interaction2: discord.Interaction, button: Button):
+@discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary)
+async def next(self, interaction2: discord.Interaction, button: Button):
             if self.page < total_pages - 1:
                 self.page += 1
                 await interaction2.response.edit_message(embed=create_embed(self.page), view=self)
-
-    await interaction.followup.send(embed=create_embed(0), view=LeaderboardView())
+                await interaction2.followup.send(embed=create_embed(0), view=LeaderboardView())
 
 
 @tree.command(name="prodej-veci", description="Prodej věci jinému hráči")
@@ -1393,4 +1392,4 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
     except:
         pass
 
-bot.run(TOKEN)
+bot.run("MTI5MzYxMzAyMDg5MDc5NjA5Mw.G3KrMY.RTJYMScW6qFrimjJpFwayCyqiKFibQ7MUWNF5s")
