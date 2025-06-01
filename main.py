@@ -11,7 +11,7 @@ from operator import itemgetter
 from discord.ui import View, Button
 
 
-TOKEN = "MTI5MzYxMzAyMDg5MDc5NjA5Mw.G3KrMY.RTJYMScW6qFrimjJpFwayCyqiKFibQ7MUWNF5s"
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
@@ -1392,4 +1392,4 @@ async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 1)
     except:
         pass
 
-bot.run("MTI5MzYxMzAyMDg5MDc5NjA5Mw.G3KrMY.RTJYMScW6qFrimjJpFwayCyqiKFibQ7MUWNF5s")
+bot.run(TOKEN)
