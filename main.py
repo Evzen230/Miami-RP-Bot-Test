@@ -207,7 +207,7 @@ AUTA = {
     "Brush Falcon Advance+ 2020": {'cena': 0, 'role': '1293617189005557867 || 1293617189005557866'},
     "Falcon Advance": {'cena': 0, 'role': '1293617189005557867 || 1293617189005557866'},
     "FD Bullhorn Prancer": {'cena': 0, 'role': '1293617189005557867 || 1293617189005557866'},
-    "Mobile Command Center": {'cena': 0, 'role': '1293617189005557867 || 1293617189005557866'},
+    "Mobile Command Center": {'cena': 0, 'role': '1293617189005557867 || 12936171890055557866'},
     "Vellfire Evertt Crew Cab 1995": {'cena': 0, 'role': '1293617189005557865'},
     "Flatbed Tow Truck": {'cena': 0, 'role': '1293617189005557865'},
     "Cone Truck": {'cena': 0, 'role': '1293617189005557865'},
@@ -387,10 +387,10 @@ def get_or_create_user(user_id):
         }
         save_data()
         return databaze[user_id]
-    
+
     # Convert old formats and ensure all fields exist
     data = databaze[user_id]
-    
+
     # Ensure all money fields exist
     if "penize" not in data:
         data["penize"] = 0
@@ -422,7 +422,7 @@ def get_or_create_user(user_id):
 
     # Update total money
     data["penize"] = data["hotovost"] + data["bank"]
-    
+
     return data
 
 # 📦 Seznam věcí pro autocomplete (z cen)
@@ -450,10 +450,10 @@ async def autocomplete_veci_drogy(interaction: discord.Interaction, current: str
     user_data = get_or_create_user(interaction.user.id)
     veci = user_data.get("veci", {})
     drogy = user_data.get("drogy", {})
-    
+
     # Kombinuj věci a drogy z inventáře uživatele
     dostupne_polozky = list(veci.keys()) + list(drogy.keys())
-    
+
     return [
         app_commands.Choice(name=item, value=item)
         for item in dostupne_polozky if current.lower() in item.lower()
@@ -1388,7 +1388,7 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
 
     # Převod peněz
     data_prodejce["hotovost"] += cena
-    
+
     # Remove money from buyer (hotovost first, then bank)
     remaining_to_remove = cena
     if data_kupce["hotovost"] >= remaining_to_remove:
@@ -1397,7 +1397,7 @@ async def prodej_veci(interaction: discord.Interaction, cil: discord.Member, vec
         remaining_to_remove -= data_kupce["hotovost"]
         data_kupce["hotovost"] = 0
         data_kupce["bank"] -= remaining_to_remove
-    
+
     # Update total money for both users
     data_prodejce["penize"] = data_prodejce["hotovost"] + data_prodejce["bank"]
     data_kupce["penize"] = data_kupce["hotovost"] + data_kupce["bank"]
@@ -1428,6 +1428,8 @@ async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
         return
 
     data["hotovost"] -= cena
+    data["penize"] = data["hotovost"] + data["bank"]
+
     if veci in data["veci"]:
         data["veci"][veci] += pocet
     else:
@@ -1605,7 +1607,7 @@ async def recepty(interaction: discord.Interaction):
         )
 
     await interaction.response.send_message(embed=embed)
-    
+
 ADMIN_ROLE_ID = 1378111107780313209  # Změň na ID admin role
 
 def is_admin(user: discord.User):
