@@ -857,12 +857,9 @@ async def posli_penize(interaction: discord.Interaction, cil: discord.Member, ca
 
 @tree.command(name="koupit-auto", description="Koupí auto, pokud máš dost peněz a případnou roli")
 @app_commands.describe(auto="Auto, které chceš koupit")
-@app_commands.autocomplete(auto=lambda _, user_input: [
-    app_commands.Choice(name=key, value=key)
-    for key in AUTA.keys() if user_input.lower() in key.lower()])
 async def koupit_auto(interaction: discord.Interaction, auto: str):
     user = interaction.user
-    user_data = await users_collection.find_one({"_id": str(user.id)})
+    data = get_or_create_user(user.id)
 
     if auto not in AUTA:
         await interaction.response.send_message("❌ Takové auto neexistuje.", ephemeral=True)
@@ -872,35 +869,49 @@ async def koupit_auto(interaction: discord.Interaction, auto: str):
     cena = info["cena"]
     pozadovana_role = info["role"]
 
+    # Check if specific role is required and user has it
     if pozadovana_role:
-        role = discord.utils.get(interaction.guild.roles, name=pozadovana_role)
-        if role not in user.roles:
+        required_role_ids = [int(role_id.strip()) for role_id in pozadovana_role.split("||")]
+        user_role_ids = [role.id for role in user.roles]
+        
+        if not any(role_id in user_role_ids for role_id in required_role_ids):
             await interaction.response.send_message(
-                f"❌ Toto auto může koupit jen uživatel s rolí `{pozadovana_role}`.", ephemeral=True)
+                f"❌ Toto auto vyžaduje specifickou roli.", ephemeral=True)
             return
 
-    if user_data["penize"] < cena:
+    total_money = get_total_money(data)
+    if total_money < cena:
         await interaction.response.send_message("❌ Nemáš dostatek peněz.", ephemeral=True)
         return
 
-    # Odečti peníze a přidej auto
-    await users_collection.update_one(
-        {"_id": str(user.id)},
-        {
-            "$inc": {"penize": -cena},
-            "$set": {f"auta.{auto}": True}
-        }
-    )
+    # Remove money from user (hotovost first, then bank)
+    remaining_to_remove = cena
+    if data["hotovost"] >= remaining_to_remove:
+        data["hotovost"] -= remaining_to_remove
+    else:
+        remaining_to_remove -= data["hotovost"]
+        data["hotovost"] = 0
+        data["bank"] -= remaining_to_remove
+
+    # Add car to inventory
+    if auto in data["auta"]:
+        data["auta"][auto] += 1
+    else:
+        data["auta"][auto] = 1
+
+    # Update total money
+    data["penize"] = data["hotovost"] + data["bank"]
+    save_data()
 
     await interaction.response.send_message(
-        f"✅ Úspěšně jsi koupil **{auto}** za **{cena:,} $**.", ephemeral=True
+        f"✅ Úspěšně jsi koupil **{auto}** za **{cena:,} $**."
     )
 
 @koupit_auto.autocomplete("auto")
 async def autocomplete_kup_auto(interaction: discord.Interaction, current: str):
     return [
         app_commands.Choice(name=a, value=a)
-        for a in CENY_AUT.keys() if current.lower() in a.lower()
+        for a in AUTA.keys() if current.lower() in a.lower()
     ][:25]
 
 # Kup zbran command
