@@ -3,8 +3,8 @@
         "auta": {},
         "zbrane": {},
         "penize": 1231224584,
-        "hotovost": 1231224584,
-        "bank": 0,
+        "hotovost": 0,
+        "bank": 1231224584,
         "last_collect": null,
         "collect_timestamps": {},
         "veci": {},
@@ -35,6 +35,16 @@
         }
     },
     "792820515491282965": {
+        "auta": {},
+        "zbrane": {},
+        "penize": 0,
+        "hotovost": 0,
+        "bank": 0,
+        "last_collect": null,
+        "collect_timestamps": {},
+        "veci": {}
+    },
+    "1293613020890796093": {
         "auta": {},
         "zbrane": {},
         "penize": 0,
