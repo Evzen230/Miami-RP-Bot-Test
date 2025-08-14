@@ -1542,54 +1542,144 @@ async def autocomplete_drogy_ve_inventari(interaction: discord.Interaction, curr
     return options
 
 @tree.command(name="pozij-drogu", description="Požij drogu z inventáře a získej dočasné účinky")
-@app_commands.describe(droga="Droga, kterou chceš použít", mnozstvi="Kolik gramů chceš požít")
+@app_commands.describe(
+    droga="Droga, kterou chceš použít",
+    mnozstvi="Kolik chceš požít (např. 0.5g, 500mg, all)"
+)
 @app_commands.autocomplete(droga=autocomplete_drogy_ve_inventari)
-async def pozij_drogu(interaction: discord.Interaction, droga: str, mnozstvi: int):
+async def pozij_drogu(interaction: discord.Interaction, droga: str, mnozstvi: str):
     uzivatel = interaction.user
     data = get_or_create_user(uzivatel.id)
-
     drogy = data.get("drogy", {})
 
     if droga not in drogy:
         await interaction.response.send_message("❌ Tuto drogu nemáš v inventáři.", ephemeral=True)
         return
 
-    if mnozstvi <= 0:
+    inventar_mnozstvi = drogy[droga]  # v gramech
+
+    mnozstvi = mnozstvi.strip().lower()
+    try:
+        if mnozstvi == "all":
+            mnozstvi_g = inventar_mnozstvi
+        elif mnozstvi.endswith("mg"):
+            mnozstvi_g = float(mnozstvi[:-2].strip()) / 1000
+        elif mnozstvi.endswith("g"):
+            mnozstvi_g = float(mnozstvi[:-1].strip())
+        else:
+            mnozstvi_g = float(mnozstvi)  # default = g
+    except ValueError:
+        await interaction.response.send_message("❌ Neplatný formát. Zadej třeba `0.5g`, `500mg`, nebo `all`.", ephemeral=True)
+        return
+
+    if mnozstvi_g <= 0:
         await interaction.response.send_message("❌ Množství musí být větší než 0.", ephemeral=True)
         return
 
-    if drogy[droga] < mnozstvi:
-        await interaction.response.send_message(f"❌ Máš pouze {drogy[droga]}g `{droga}`.", ephemeral=True)
+    if mnozstvi_g > inventar_mnozstvi:
+        await interaction.response.send_message(f"❌ Máš pouze {inventar_mnozstvi:.2f}g `{droga}`.", ephemeral=True)
         return
+    UCINKY_DROG = {
+        "Marihuana": {
+            "base": "🧘 Uklidnění a zpomalení reakcí",
+            "priznaky": [
+                "👁️‍🗨️ Zarudlé oči", 
+                "🍔 Zvýšená chuť k jídlu",
+                "😶 Zpomalená řeč"
+            ],
+            "trvani": 5
+        },
+        "Kokain": {
+            "base": "⚡ Zvýšená energie a euforie",
+            "priznaky": [
+                "👃 Časté čichání", 
+                "👁️ Rozšířené zornice",
+                "💦 Pocení"
+            ],
+            "trvani": 8
+        },
+        "Metamfetamin": {
+            "base": "🔥 Extrémní bdělost a hyperaktivita",
+            "priznaky": [
+                "💢 Paranoia", 
+                "👄 Rychlé mluvení",
+                "💦 Pocení"
+            ],
+            "trvani": 10
+        },
+        "Pervitin": {
+            "base": "🌀 Silná euforie a soustředění",
+            "priznaky": [
+                "😬 Skřípání zubů",
+                "💧 Sucho v ústech",
+                "👁️ Rozšířené zornice"
+            ],
+            "trvani": 10
+        },
+        "Extáze": {
+            "base": "💖 Emoční propojení a euforie",
+            "priznaky": [
+                "👁️ Velké zornice",
+                "💦 Pocení",
+                "🤗 Přehnaná empatie"
+            ],
+            "trvani": 7
+        },
+        "Heroin": {
+            "base": "😴 Uklidnění a utlumení bolesti",
+            "priznaky": [
+                "😵 Zúžené zornice",
+                "🛌 Malátnost",
+                "🩸 Pomalejší dýchání"
+            ],
+            "trvani": 12
+        },
+    }
 
-    # Odečíst z inventáře
-    drogy[droga] -= mnozstvi
+    # Výpočet účinku a příznaků
+    ucinky = UCINKY_DROG.get(droga, None)
+    if not ucinky:
+        ucinek_text = "❓ Neznámé účinky"
+        priznaky = []
+        trvani = 5
+    else:
+        ucinek_text = ucinky["base"]
+        priznaky = ucinky["priznaky"]
+        trvani = ucinky["trvani"]
+
+    # Příznaky podle síly dávky
+    if mnozstvi_g >= 2.5:
+        extra = "🚨 **Silná dávka! Možné záchvaty, halucinace, nebo smrtelné riziko.**"
+        priznaky += ["💀 Dezorientace", "🤢 Nevolnost", "💤 Kolaps"]
+    elif mnozstvi_g >= 1.0:
+        extra = "⚠️ **Silnější účinky. Výrazné změny chování.**"
+        priznaky += ["😵 Ztráta rovnováhy", "💬 Zmatečný projev"]
+    else:
+        extra = ""
+
+    # Odečtení drogy
+    drogy[droga] -= mnozstvi_g
     if drogy[droga] <= 0:
         del drogy[droga]
     data["drogy"] = drogy
     save_data()
 
-    UCINKY_DROG = {
-        "Marihuana": ("🧘 Uklidnění + zpomalení reakce", 5),
-        "Kokain": ("⚡ Zvýšení energie a agresivity", 8),
-        "Metamfetamin": ("🔥 Extrémní bdělost a hyperaktivita", 10),
-        "Pervitin": ("🌀 Silná euforie a soustředění", 10),
-        "Extáze": ("💖 Euforie a emoční vlny", 7),
-        "Heroin": ("😴 Ospalost a utlumení bolesti", 12),
-    }
-
-    ucinek_text, trvani = UCINKY_DROG.get(droga, ("❓ Neznámé účinky", 5))
-
+    # Embed
     embed = discord.Embed(
         title=f"💊 {droga} použita",
         description=(
-            f"**{uzivatel.display_name}** právě požil {mnozstvi}g `{droga}`.\n\n"
+            f"**{interaction.user.display_name}** právě požil {mnozstvi_g:.2f}g `{droga}`.\n\n"
             f"🧠 **Účinek:** {ucinek_text}\n"
-            f"⏳ **Doba trvání účinku:** {trvani}*{mnozstvi} minut (OOC)"
+            f"⏳ **Doba trvání:** {trvani * mnozstvi_g:.1f} minut (OOC)\n"
+            f"{extra}\n\n"
+            f"🩺 **Příznaky:**\n" + "\n".join(f"- {p}" for p in priznaky)
         ),
         color=discord.Color.purple()
     )
     await interaction.response.send_message(embed=embed)
+
+
+
 
 
 @tree.command(name="recepty", description="Zobrazí seznam receptů pro výrobu drog")
