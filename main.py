@@ -16,6 +16,7 @@ from commands.inventory_commands import setup_inventory_commands
 from commands.money_commands import setup_money_commands
 from commands.trading_commands import setup_trading_commands
 from commands.drug_commands import setup_drug_commands
+from commands.vehicle_commands import setup_vehicle_commands
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 keep_alive()
@@ -33,6 +34,7 @@ async def on_ready():
     await setup_money_commands(tree, bot)
     await setup_trading_commands(tree, bot)
     await setup_drug_commands(tree, bot)
+    await setup_vehicle_commands(tree, bot)
 
     # Add the help command
     @tree.command(name="prikazy", description="Zobrazí seznam všech dostupných příkazů a jejich popis")
@@ -57,6 +59,11 @@ async def on_ready():
         embed.add_field(name="/odeber-veci [uživatel] [věc] [počet]", value="Odebere věci z inventáře hráče (pouze policie/admin).", inline=False)
         embed.add_field(name="/odeber-drogy [uživatel] [droga] [gramy]", value="Odebere drogy z inventáře hráče (pouze policie/admin).", inline=False)
         embed.add_field(name="/reset-inventory [uživatel]", value="Resetuje celý inventář hráče (pouze policie/admin).", inline=False)
+        embed.add_field(name="/registrovat-vozidlo", value="Zaregistruj vozidlo pomocí formuláře (typ, barva, rychlost, SPZ).", inline=False)
+        embed.add_field(name="/moje-vozidla", value="Zobrazí tvá zaregistrovaná vozidla.", inline=False)
+        embed.add_field(name="/vyhledat-vozidlo [spz]", value="Vyhledá vozidlo podle registrační značky.", inline=False)
+        embed.add_field(name="/smazat-vozidlo [spz]", value="Smaže tvé zaregistrované vozidlo.", inline=False)
+        embed.add_field(name="/vsechna-vozidla", value="Zobrazí všechna zaregistrovaná vozidla (admin).", inline=False)
         embed.add_field(name="/prikazy", value="Zobrazí tento seznam příkazů.", inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)

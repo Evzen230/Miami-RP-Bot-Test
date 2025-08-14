@@ -27,7 +27,8 @@ def get_or_create_user(user_id, databaze):
             "bank": 0,
             "last_collect": None,
             "collect_timestamps": {},
-            "veci": {}
+            "veci": {},
+            "registrovana_auta": {}
         }
         save_data(databaze)
         return databaze[user_id]
