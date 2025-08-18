@@ -4,8 +4,7 @@ from discord import app_commands
 import json
 import os
 from discord.ext import commands
-import asyncio
-from keep_alive import keep_alive 
+import asyncio 
 import random
 from operator import itemgetter
 from discord.ui import View, Button
@@ -21,7 +20,6 @@ from commands.vehicle_commands import setup_vehicle_commands
 
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-keep_alive()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
