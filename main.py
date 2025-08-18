@@ -11,12 +11,14 @@ from operator import itemgetter
 from discord.ui import View, Button
 
 # Import our modules
-from utils import load_data, save_data, get_or_create_user, log_action
+from utils import get_or_create_user, is_admin
 from commands.inventory_commands import setup_inventory_commands
 from commands.money_commands import setup_money_commands
 from commands.trading_commands import setup_trading_commands
 from commands.drug_commands import setup_drug_commands
 from commands.vehicle_commands import setup_vehicle_commands
+# from commands.casino_commands import casino_setup
+
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 keep_alive()
@@ -35,6 +37,7 @@ async def on_ready():
     await setup_trading_commands(tree, bot)
     await setup_drug_commands(tree, bot)
     await setup_vehicle_commands(tree, bot)
+    # await casino_setup(tree, bot, load_data, save_data, get_or_create_user)
 
     # Add the help command
     @tree.command(name="prikazy", description="Zobrazí seznam všech dostupných příkazů a jejich popis")

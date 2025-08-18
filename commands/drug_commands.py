@@ -5,7 +5,7 @@ from discord import app_commands
 import asyncio
 import random
 from data_config import RECEPTY, VYROBA_COOLDOWN, DROGY_SEZNAM, UCINKY_DROG, VECI_SEZNAM
-from utils import get_or_create_user, save_data, is_admin, has_permission, load_data
+from utils import get_or_create_user, is_admin, has_permission
 
 async def setup_drug_commands(tree, bot):
 
@@ -22,8 +22,7 @@ async def setup_drug_commands(tree, bot):
         ][:25]
 
     async def autocomplete_drogy_ve_inventari(interaction: discord.Interaction, current: str):
-        databaze = load_data()
-        data = get_or_create_user(interaction.user.id, databaze)
+        data = get_or_create_user(interaction.user.id)
         drogy = data.get("drogy", {})
         options = [
             app_commands.Choice(name=droga, value=droga)
@@ -37,8 +36,8 @@ async def setup_drug_commands(tree, bot):
     @app_commands.autocomplete(droga=autocomplete_drogy)
     async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 10):
         uzivatel = interaction.user
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
 
         if mnozstvi % 10 != 0 or mnozstvi <= 0:
             return await interaction.response.send_message("❌ Výroba je možná pouze po 10g dávkách (např. 10, 20, 30...).", ephemeral=True)
@@ -46,7 +45,6 @@ async def setup_drug_commands(tree, bot):
         recept = RECEPTY.get(droga)
         if not recept:
             return await interaction.response.send_message("❌ Tato droga neexistuje.", ephemeral=True)
-
         nyni = datetime.datetime.utcnow()
         posledni = data.get("last_vyroba")
         if posledni:
@@ -57,9 +55,7 @@ async def setup_drug_commands(tree, bot):
 
         veci = data.get("veci", {})
         drogy = data.get("drogy", {})
-
         davky = mnozstvi // 10
-
         for surovina, pocet in recept["suroviny"].items():
             if veci.get(surovina, 0) < pocet * davky:
                 return await interaction.response.send_message(f"❌ Nemáš dostatek `{surovina}`.", ephemeral=True)
@@ -72,11 +68,8 @@ async def setup_drug_commands(tree, bot):
             veci[surovina] -= pocet * davky
             if veci[surovina] <= 0:
                 veci.pop(surovina)
-
         data["last_vyroba"] = nyni.isoformat()
         celkovy_cas = recept["cas"] * davky
-        save_data(databaze)
-
         await interaction.response.send_message(
             f"🧪 Začal jsi vyrábět {mnozstvi}g `{droga}`.\n⏳ Dokončení za {celkovy_cas} minut...", ephemeral=True)
 
@@ -89,7 +82,7 @@ async def setup_drug_commands(tree, bot):
                         veci[nastroj] -= pocet
                         if veci[nastroj] <= 0:
                             veci.pop(nastroj)
-                save_data(databaze)
+                
                 try:
                     await uzivatel.send(f"❌ Výroba {mnozstvi}g `{droga}` selhala. Přišel jsi o suroviny i nástroje.")
                 except:
@@ -98,7 +91,7 @@ async def setup_drug_commands(tree, bot):
 
             drogy[droga] = drogy.get(droga, 0) + mnozstvi
             data["drogy"] = drogy
-            save_data(databaze)
+            
             try:
                 await uzivatel.send(f"✅ Výroba dokončena: {mnozstvi}g `{droga}` bylo přidáno do inventáře.")
             except:
@@ -114,8 +107,8 @@ async def setup_drug_commands(tree, bot):
     @app_commands.autocomplete(droga=autocomplete_drogy_ve_inventari)
     async def pozij_drogu(interaction: discord.Interaction, droga: str, mnozstvi: str):
         uzivatel = interaction.user
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
 
         if droga not in drogy:
@@ -169,7 +162,7 @@ async def setup_drug_commands(tree, bot):
         if drogy[droga] <= 0:
             del drogy[droga]
         data["drogy"] = drogy
-        save_data(databaze)
+        
 
         embed = discord.Embed(
             title=f"💊 {droga} použita",
@@ -219,12 +212,12 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         veci[vec] = veci.get(vec, 0) + mnozstvi
         data["veci"] = veci
-        save_data(databaze)
+        
 
         await interaction.response.send_message(f"✅ Přidáno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -236,12 +229,12 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         drogy[droga] = drogy.get(droga, 0) + mnozstvi
         data["drogy"] = drogy
-        save_data(databaze)
+        
 
         await interaction.response.send_message(f"✅ Přidáno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -257,8 +250,8 @@ async def setup_drug_commands(tree, bot):
         if not uzivatel:
             return []
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         return [
             app_commands.Choice(name=vec, value=vec)
@@ -277,8 +270,8 @@ async def setup_drug_commands(tree, bot):
         if not uzivatel:
             return []
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         return [
             app_commands.Choice(name=droga, value=droga)
@@ -293,8 +286,8 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         if vec not in veci or veci[vec] < mnozstvi:
             await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}× `{vec}`.", ephemeral=True)
@@ -304,7 +297,7 @@ async def setup_drug_commands(tree, bot):
         if veci[vec] <= 0:
             del veci[vec]
         data["veci"] = veci
-        save_data(databaze)
+        
 
         await interaction.response.send_message(f"✅ Odebráno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -316,8 +309,8 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         if droga not in drogy or drogy[droga] < mnozstvi:
             await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}g `{droga}`.", ephemeral=True)
@@ -327,6 +320,6 @@ async def setup_drug_commands(tree, bot):
         if drogy[droga] <= 0:
             del drogy[droga]
         data["drogy"] = drogy
-        save_data(databaze)
+        
 
         await interaction.response.send_message(f"✅ Odebráno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)

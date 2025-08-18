@@ -2,76 +2,78 @@
 import json
 import discord
 from data_config import DATA_FILE, LOG_CHANNEL_ID, ADMIN_ROLE_ID, POLICE_ROLE_ID
+from pymongo import MongoClient
+from datetime import datetime
 
-# === DATABASE FUNCTIONS ===
+# MongoDB připojení
+MONGO_URI = "mongodb+srv://Miami_RP_BOT_TEST:SBkruridCJ1pxIqW@miamirp.y7b8j.mongodb.net/?retryWrites=true&w=majority&appName=MiamiRP"
+client = MongoClient(MONGO_URI)
+db = client["miamirpbot_test"]
+hraci = db["hraci"]
 
-def load_data():
-    try:
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
 
-def save_data(databaze):
-    with open(DATA_FILE, "w") as f:
-        json.dump(databaze, f, indent=4)
-
-def get_or_create_user(user_id, databaze):
+def get_or_create_user(user_id: int):
     user_id = str(user_id)
-    if user_id not in databaze:
-        databaze[user_id] = {
+
+    user = hraci.find_one({"user_id": user_id})
+    if not user:
+        user = {
+            "user_id": user_id,
             "auta": {},
             "zbrane": {},
             "penize": 0,
-            "hotovost": 0,
+            "hotovost": 1000,
             "bank": 0,
             "last_collect": None,
             "collect_timestamps": {},
             "veci": {},
             "registrovana_auta": {}
         }
-        save_data(databaze)
-        return databaze[user_id]
+        hraci.insert_one(user)
+        return user
 
-    # Convert old formats and ensure all fields exist
-    data = databaze[user_id]
+    # --- Migrace starých dat ---
+    changed = False
 
-    # Ensure all money fields exist
-    if "penize" not in data:
-        data["penize"] = 0
-    if "hotovost" not in data:
-        data["hotovost"] = 0
-    if "bank" not in data:
-        data["bank"] = 0
-    if "veci" not in data:
-        data["veci"] = {}
+    if "penize" not in user:
+        user["penize"] = 0
+        changed = True
+    if "hotovost" not in user:
+        user["hotovost"] = 0
+        changed = True
+    if "bank" not in user:
+        user["bank"] = 0
+        changed = True
+    if "veci" not in user:
+        user["veci"] = {}
+        changed = True
 
-    # Convert old list format to new dict format
-    if isinstance(data.get("auta"), list):
+    # převod listů na dict
+    if isinstance(user.get("auta"), list):
         auta_dict = {}
-        for auto in data["auta"]:
-            if auto in auta_dict:
-                auta_dict[auto] += 1
-            else:
-                auta_dict[auto] = 1
-        data["auta"] = auta_dict
+        for auto in user["auta"]:
+            auta_dict[auto] = auta_dict.get(auto, 0) + 1
+        user["auta"] = auta_dict
+        changed = True
 
-    if isinstance(data.get("zbrane"), list):
+    if isinstance(user.get("zbrane"), list):
         zbrane_dict = {}
-        for zbran in data["zbrane"]:
-            if zbran in zbrane_dict:
-                zbrane_dict[zbran] += 1
-            else:
-                zbrane_dict[zbran] = 1
-        data["zbrane"] = zbrane_dict
+        for zbran in user["zbrane"]:
+            zbrane_dict[zbran] = zbrane_dict.get(zbran, 0) + 1
+        user["zbrane"] = zbrane_dict
+        changed = True
 
-    # Update total money
-    data["penize"] = data["hotovost"] + data["bank"]
+    # aktualizace celkových peněz
+    user["penize"] = user.get("hotovost", 0) + user.get("bank", 0)
 
-    return data
+    if changed:
+        hraci.update_one({"user_id": user_id}, {"$set": user})
 
-def get_total_money(data):
-    return data.get("hotovost", 0) + data.get("bank", 0)
+    return user
+
+
+def get_total_money(user):
+    return user.get("hotovost", 0) + user.get("bank", 0)
 
 # === PERMISSION FUNCTIONS ===
 

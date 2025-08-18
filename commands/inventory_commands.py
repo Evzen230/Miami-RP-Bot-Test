@@ -2,7 +2,7 @@
 import discord
 from discord import app_commands
 from data_config import DOSTUPNE_ZBRANE, DOSTUPNA_AUTA
-from utils import get_or_create_user, save_data, is_admin, load_data
+from utils import get_or_create_user, is_admin
 
 async def setup_inventory_commands(tree, bot):
     
@@ -23,13 +23,13 @@ async def setup_inventory_commands(tree, bot):
                     f"❌ Zbraň `{zbran}` není v seznamu dostupných zbraní.",
                     ephemeral=True)
                 return
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             if zbran in data["zbrane"]:
                 data["zbrane"][zbran] += pocet
             else:
                 data["zbrane"][zbran] = pocet
-            save_data(databaze)
+            
             await interaction.response.send_message(
                 f"✅ Přidáno {pocet}x `{zbran}` hráči {uzivatel.display_name}.")
 
@@ -53,13 +53,13 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             if zbran in data["zbrane"]:
                 data["zbrane"][zbran] -= pocet
                 if data["zbrane"][zbran] <= 0:
                     del data["zbrane"][zbran]
-                save_data(databaze)
+                
                 await interaction.response.send_message(
                     f"✅ Odebráno {pocet}x `{zbran}` hráči {uzivatel.display_name}."
                 )
@@ -74,8 +74,8 @@ async def setup_inventory_commands(tree, bot):
             uzivatel = interaction.namespace.uzivatel
             if not uzivatel:
                 return []
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             return [
                 app_commands.Choice(name=z, value=z) for z in data["zbrane"]
                 if current.lower() in z.lower()
@@ -97,13 +97,13 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     f"❌ Auto `{auto}` není v seznamu dostupných aut.", ephemeral=True)
                 return
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             if auto in data["auta"]:
                 data["auta"][auto] += pocet
             else:
                 data["auta"][auto] = pocet
-            save_data(databaze)
+            
             await interaction.response.send_message(
                 f"✅ Přidáno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
 
@@ -127,13 +127,13 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             if auto in data["auta"]:
                 data["auta"][auto] -= pocet
                 if data["auta"][auto] <= 0:
                     del data["auta"][auto]
-                save_data(databaze)
+                
                 await interaction.response.send_message(
                     f"✅ Odebráno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
             else:
@@ -146,8 +146,8 @@ async def setup_inventory_commands(tree, bot):
             uzivatel = interaction.namespace.uzivatel
             if not uzivatel:
                 return []
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             return [
                 app_commands.Choice(name=a, value=a) for a in data["auta"]
                 if current.lower() in a.lower()
@@ -157,8 +157,8 @@ async def setup_inventory_commands(tree, bot):
     @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš zobrazit")
     async def inventory(interaction: discord.Interaction, uzivatel: discord.Member = None):
             uzivatel = uzivatel or interaction.user
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
 
             auta = data.get("auta", {})
             zbrane = data.get("zbrane", {})
@@ -189,11 +189,11 @@ async def setup_inventory_commands(tree, bot):
             if not is_admin(interaction.user):
                 await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            databaze = load_data()
-            data = get_or_create_user(uzivatel.id, databaze)
+            
+            data = get_or_create_user(uzivatel.id)
             data["auta"] = {}
             data["zbrane"] = {}
             data["veci"] = {}
             data["drogy"] = {}
-            save_data(databaze)
+            
             await interaction.response.send_message(f"♻️ Inventář hráče {uzivatel.display_name} byl úspěšně resetován.")

@@ -2,7 +2,7 @@
 import discord
 from discord import app_commands
 from data_config import AUTA, CENY_ZBRANI, CENY_VECI, VECI_SEZNAM, DROGY_SEZNAM
-from utils import get_or_create_user, save_data, get_total_money, log_action, load_data
+from utils import get_or_create_user, get_total_money, log_action
 
 class ConfirmationView(discord.ui.View):
     def __init__(self, prodavajici, kupec, item, item_type, cena):
@@ -53,8 +53,8 @@ async def setup_trading_commands(tree, bot):
         ][:25]
 
     async def autocomplete_veci_drogy(interaction: discord.Interaction, current: str):
-        databaze = load_data()
-        user_data = get_or_create_user(interaction.user.id, databaze)
+        
+        user_data = get_or_create_user(interaction.user.id)
         veci = user_data.get("veci", {})
         drogy = user_data.get("drogy", {})
 
@@ -69,8 +69,8 @@ async def setup_trading_commands(tree, bot):
     @app_commands.describe(auto="Auto, které chceš koupit")
     async def koupit_auto(interaction: discord.Interaction, auto: str):
         user = interaction.user
-        databaze = load_data()
-        data = get_or_create_user(user.id, databaze)
+        
+        data = get_or_create_user(user.id)
 
         if auto not in AUTA:
             await interaction.response.send_message("❌ Takové auto neexistuje.", ephemeral=True)
@@ -108,7 +108,7 @@ async def setup_trading_commands(tree, bot):
             data["auta"][auto] = 1
 
         data["penize"] = data["hotovost"] + data["bank"]
-        save_data(databaze)
+        
 
         await interaction.response.send_message(
             f"✅ Úspěšně jsi koupil **{auto}** za **{cena:,} $**."
@@ -130,8 +130,8 @@ async def setup_trading_commands(tree, bot):
             return
 
         uzivatel = interaction.user
-        databaze = load_data()
-        data = get_or_create_user(uzivatel.id, databaze)
+        
+        data = get_or_create_user(uzivatel.id)
 
         if zbran not in CENY_ZBRANI:
             await interaction.response.send_message(f"❌ Zbraň `{zbran}` není v nabídce k prodeji.", ephemeral=True)
@@ -162,7 +162,7 @@ async def setup_trading_commands(tree, bot):
             data["zbrane"][zbran] = pocet
 
         data["penize"] = data["hotovost"] + data["bank"]
-        save_data(databaze)
+        
 
         await interaction.response.send_message(
             f"✅ Úspěšně jsi koupil {pocet}x `{zbran}` za {celkova_cena:,}$.",
@@ -178,8 +178,8 @@ async def setup_trading_commands(tree, bot):
     @app_commands.autocomplete(veci=autocomplete_veci)
     async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
         user = interaction.user
-        databaze = load_data()
-        data = get_or_create_user(user.id, databaze)
+        
+        data = get_or_create_user(user.id)
 
         if veci not in CENY_VECI:
             await interaction.response.send_message("❌ Tato věc není dostupná k prodeji.", ephemeral=True)
@@ -198,7 +198,7 @@ async def setup_trading_commands(tree, bot):
         else:
             data["veci"][veci] = pocet
 
-        save_data(databaze)
+        
         await interaction.response.send_message(f"✅ Koupil jsi {pocet}x `{veci}` za {cena:,}$.")
 
         await log_action(bot, interaction.guild, f"{user.mention} koupil {pocet}x {veci} za {cena:,}$")
@@ -207,9 +207,9 @@ async def setup_trading_commands(tree, bot):
     @tree.command(name="prodej-auto", description="Prodá auto jinému hráči")
     @app_commands.describe(kupec="Komu prodáváš auto", auto="Jaké auto prodáváš", cena="Cena za auto")
     async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, auto: str, cena: int):
-        databaze = load_data()
-        prodavajici_data = get_or_create_user(interaction.user.id, databaze)
-        kupec_data = get_or_create_user(kupec.id, databaze)
+        
+        prodavajici_data = get_or_create_user(interaction.user.id)
+        kupec_data = get_or_create_user(kupec.id)
 
         if auto not in prodavajici_data["auta"]:
             await interaction.response.send_message("❌ Nemáš toto auto v inventáři.", ephemeral=True)
@@ -254,7 +254,7 @@ async def setup_trading_commands(tree, bot):
             kupec_data["penize"] = kupec_data["hotovost"] + kupec_data["bank"]
             prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
 
-            save_data(databaze)
+            
 
             success_embed = discord.Embed(
                 title="✅ Obchod dokončen!",
@@ -272,8 +272,8 @@ async def setup_trading_commands(tree, bot):
 
     @prodej_auto.autocomplete("auto")
     async def autocomplete_prodej_auto(interaction: discord.Interaction, current: str):
-        databaze = load_data()
-        data = get_or_create_user(interaction.user.id, databaze)
+        
+        data = get_or_create_user(interaction.user.id)
         auta = data.get("auta", {})
         return [app_commands.Choice(name=a, value=a) for a in auta if current.lower() in a.lower()][:25]
 
@@ -291,9 +291,9 @@ async def setup_trading_commands(tree, bot):
             await interaction.response.send_message("❌ Nemůžeš prodávat sám sobě.", ephemeral=True)
             return
 
-        databaze = load_data()
-        data_prodejce = get_or_create_user(prodavajici.id, databaze)
-        data_kupce = get_or_create_user(cil.id, databaze)
+        
+        data_prodejce = get_or_create_user(prodavajici.id)
+        data_kupce = get_or_create_user(cil.id)
 
         inventar = data_prodejce.get("veci", {}) | data_prodejce.get("drogy", {})
         if vec not in inventar or inventar[vec] < mnozstvi:
@@ -371,7 +371,7 @@ async def setup_trading_commands(tree, bot):
         data_prodejce["penize"] = data_prodejce["hotovost"] + data_prodejce["bank"]
         data_kupce["penize"] = data_kupce["hotovost"] + data_kupce["bank"]
 
-        save_data(databaze)
+        
 
         await interaction.edit_original_response(
             content=f"✅ {cil.mention} koupil {mnozstvi}x `{vec}` za {cena:,}$ od {prodavajici.mention}.",

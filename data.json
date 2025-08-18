@@ -1,10 +1,13 @@
 {
     "710192260657971200": {
-        "auta": {},
+        "auta": {
+            "Falcon Fission 2015": 1,
+            "Vellfire Runabout 1984": 1
+        },
         "zbrane": {},
-        "penize": 1231224584,
+        "penize": 1231226784,
         "hotovost": 0,
-        "bank": 1231224584,
+        "bank": 1231226384,
         "last_collect": null,
         "collect_timestamps": {},
         "veci": {},
@@ -13,6 +16,48 @@
             "Ext\u00e1ze": 2000,
             "Heroin": 999.995,
             "Metamfetamin": 1000
+        },
+        "registrovana_auta": {
+            "vozidlo_1": {
+                "typ": "Falcon Fission 2015",
+                "barva": "Modr\u00e1",
+                "max_rychlost": 250,
+                "spz": "AUE392",
+                "majitel": "evzen223",
+                "datum_registrace": "14.08.2025 11:36"
+            },
+            "vozidlo_2": {
+                "typ": "Vellfire Runabout 1984",
+                "barva": "R\u016f\u017eov\u00e1",
+                "max_rychlost": 128,
+                "spz": "IKM764",
+                "majitel": "Adolf Hauler",
+                "datum_registrace": "14.08.2025 11:47"
+            },
+            "vozidlo_3": {
+                "typ": "Vellfire Runabout 1984",
+                "barva": "Zelan\u00e1",
+                "max_rychlost": 65,
+                "spz": "EZB888",
+                "majitel": "James Smith",
+                "datum_registrace": "15.08.2025 08:47"
+            },
+            "vozidlo_4": {
+                "typ": "Falcon Fission 2015",
+                "barva": "Oran\u017eov\u00e1",
+                "max_rychlost": 320,
+                "spz": "OKP744",
+                "majitel": "evzen223",
+                "datum_registrace": "15.08.2025 08:58"
+            },
+            "vozidlo_5": {
+                "typ": "Falcon Fission 2015",
+                "barva": "Ahwu",
+                "max_rychlost": 69,
+                "spz": "JGL709",
+                "majitel": "evzen223",
+                "datum_registrace": "15.08.2025 09:06"
+            }
         }
     },
     "1210862009445523506": {
@@ -35,14 +80,26 @@
         }
     },
     "792820515491282965": {
-        "auta": {},
+        "auta": {
+            "Falcon Advance 100 Holiday Edition 1956": 1
+        },
         "zbrane": {},
         "penize": 0,
         "hotovost": 0,
         "bank": 0,
         "last_collect": null,
         "collect_timestamps": {},
-        "veci": {}
+        "veci": {},
+        "registrovana_auta": {
+            "vozidlo_1": {
+                "typ": "Falcon Advance 100 Holiday Edition 1956",
+                "barva": "rr",
+                "max_rychlost": 20,
+                "spz": "ADADADAD",
+                "majitel": ".itztommm",
+                "datum_registrace": "15.08.2025 08:47"
+            }
+        }
     },
     "1293613020890796093": {
         "auta": {},
