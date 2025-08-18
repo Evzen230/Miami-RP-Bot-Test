@@ -1,8 +1,10 @@
-
 import discord
 from discord import app_commands
 from data_config import AUTA, CENY_ZBRANI, CENY_VECI, VECI_SEZNAM, DROGY_SEZNAM
 from utils import get_or_create_user, get_total_money, log_action
+
+# Placeholder for MongoDB collection, assuming it's initialized elsewhere
+# For example: hraci = db["users"]
 
 class ConfirmationView(discord.ui.View):
     def __init__(self, prodavajici, kupec, item, item_type, cena):
@@ -53,7 +55,7 @@ async def setup_trading_commands(tree, bot):
         ][:25]
 
     async def autocomplete_veci_drogy(interaction: discord.Interaction, current: str):
-        
+
         user_data = get_or_create_user(interaction.user.id)
         veci = user_data.get("veci", {})
         drogy = user_data.get("drogy", {})
@@ -69,7 +71,8 @@ async def setup_trading_commands(tree, bot):
     @app_commands.describe(auto="Auto, které chceš koupit")
     async def koupit_auto(interaction: discord.Interaction, auto: str):
         user = interaction.user
-        
+        uzivatel = interaction.user # Alias for consistency with MongoDB update
+
         data = get_or_create_user(user.id)
 
         if auto not in AUTA:
@@ -83,7 +86,7 @@ async def setup_trading_commands(tree, bot):
         if pozadovana_role:
             required_role_ids = [int(role_id.strip()) for role_id in pozadovana_role.split("||")]
             user_role_ids = [role.id for role in user.roles]
-            
+
             if not any(role_id in user_role_ids for role_id in required_role_ids):
                 await interaction.response.send_message(
                     f"❌ Toto auto vyžaduje specifickou roli.", ephemeral=True)
@@ -94,21 +97,29 @@ async def setup_trading_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš dostatek peněz.", ephemeral=True)
             return
 
-        remaining_to_remove = cena
-        if data["hotovost"] >= remaining_to_remove:
-            data["hotovost"] -= remaining_to_remove
+        # Odebrání peněz
+        if data["hotovost"] >= cena:
+            new_hotovost = data["hotovost"] - cena
+            new_bank = data["bank"]
         else:
-            remaining_to_remove -= data["hotovost"]
-            data["hotovost"] = 0
-            data["bank"] -= remaining_to_remove
+            rozdil = cena - data["hotovost"]
+            new_hotovost = 0
+            new_bank = data["bank"] - rozdil
 
-        if auto in data["auta"]:
-            data["auta"][auto] += 1
-        else:
-            data["auta"][auto] = 1
+        new_penize = new_hotovost + new_bank
+        new_auto_count = data["auta"].get(auto, 0) + 1
 
-        data["penize"] = data["hotovost"] + data["bank"]
-        
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(uzivatel.id)},
+            {"$set": {
+                "hotovost": new_hotovost,
+                "bank": new_bank,
+                "penize": new_penize,
+                f"auta.{auto}": new_auto_count
+            }}
+        )
+
 
         await interaction.response.send_message(
             f"✅ Úspěšně jsi koupil **{auto}** za **{cena:,} $**."
@@ -130,7 +141,7 @@ async def setup_trading_commands(tree, bot):
             return
 
         uzivatel = interaction.user
-        
+
         data = get_or_create_user(uzivatel.id)
 
         if zbran not in CENY_ZBRANI:
@@ -148,21 +159,29 @@ async def setup_trading_commands(tree, bot):
             )
             return
 
-        remaining_to_remove = celkova_cena
-        if data["hotovost"] >= remaining_to_remove:
-            data["hotovost"] -= remaining_to_remove
+        # Odebrání peněz
+        if data["hotovost"] >= celkova_cena:
+            new_hotovost = data["hotovost"] - celkova_cena
+            new_bank = data["bank"]
         else:
-            remaining_to_remove -= data["hotovost"]
-            data["hotovost"] = 0
-            data["bank"] -= remaining_to_remove
+            rozdil = celkova_cena - data["hotovost"]
+            new_hotovost = 0
+            new_bank = data["bank"] - rozdil
 
-        if zbran in data["zbrane"]:
-            data["zbrane"][zbran] += pocet
-        else:
-            data["zbrane"][zbran] = pocet
+        new_penize = new_hotovost + new_bank
+        new_zbran_count = data["zbrane"].get(zbran, 0) + pocet
 
-        data["penize"] = data["hotovost"] + data["bank"]
-        
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(uzivatel.id)},
+            {"$set": {
+                "hotovost": new_hotovost,
+                "bank": new_bank,
+                "penize": new_penize,
+                f"zbrane.{zbran}": new_zbran_count
+            }}
+        )
+
 
         await interaction.response.send_message(
             f"✅ Úspěšně jsi koupil {pocet}x `{zbran}` za {celkova_cena:,}$.",
@@ -178,36 +197,51 @@ async def setup_trading_commands(tree, bot):
     @app_commands.autocomplete(veci=autocomplete_veci)
     async def kup_veci(interaction: discord.Interaction, veci: str, pocet: int = 1):
         user = interaction.user
-        
+
         data = get_or_create_user(user.id)
 
         if veci not in CENY_VECI:
             await interaction.response.send_message("❌ Tato věc není dostupná k prodeji.", ephemeral=True)
             return
 
-        cena = CENY_VECI[veci] * pocet
-        if data["hotovost"] < cena:
-            await interaction.response.send_message(f"❌ Nemáš dostatek peněz (potřebuješ {cena:,}$).", ephemeral=True)
+        celkova_cena = CENY_VECI[veci] * pocet
+        if data["hotovost"] < celkova_cena:
+            await interaction.response.send_message(f"❌ Nemáš dostatek peněz (potřebuješ {celkova_cena:,}$).", ephemeral=True)
             return
 
-        data["hotovost"] -= cena
-        data["penize"] = data["hotovost"] + data["bank"]
-
-        if veci in data["veci"]:
-            data["veci"][veci] += pocet
+        # Odebrání peněz
+        if data["hotovost"] >= celkova_cena:
+            new_hotovost = data["hotovost"] - celkova_cena
+            new_bank = data["bank"]
         else:
-            data["veci"][veci] = pocet
+            rozdil = celkova_cena - data["hotovost"]
+            new_hotovost = 0
+            new_bank = data["bank"] - rozdil
 
-        
-        await interaction.response.send_message(f"✅ Koupil jsi {pocet}x `{veci}` za {cena:,}$.")
+        new_penize = new_hotovost + new_bank
+        new_vec_count = data["veci"].get(veci, 0) + pocet
 
-        await log_action(bot, interaction.guild, f"{user.mention} koupil {pocet}x {veci} za {cena:,}$")
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(user.id)},
+            {"$set": {
+                "hotovost": new_hotovost,
+                "bank": new_bank,
+                "penize": new_penize,
+                f"veci.{veci}": new_vec_count
+            }}
+        )
+
+
+        await interaction.response.send_message(f"✅ Koupil jsi {pocet}x `{veci}` za {celkova_cena:,}$.")
+
+        await log_action(bot, interaction.guild, f"{user.mention} koupil {pocet}x {veci} za {celkova_cena:,}$")
 
     # Add similar trading commands for selling items, cars, weapons, etc.
     @tree.command(name="prodej-auto", description="Prodá auto jinému hráči")
     @app_commands.describe(kupec="Komu prodáváš auto", auto="Jaké auto prodáváš", cena="Cena za auto")
     async def prodej_auto(interaction: discord.Interaction, kupec: discord.Member, auto: str, cena: int):
-        
+
         prodavajici_data = get_or_create_user(interaction.user.id)
         kupec_data = get_or_create_user(kupec.id)
 
@@ -236,25 +270,33 @@ async def setup_trading_commands(tree, bot):
         await view.wait()
 
         if view.result is True:
-            prodavajici_data["auta"][auto] -= 1
-            if prodavajici_data["auta"][auto] == 0:
-                del prodavajici_data["auta"][auto]
-            kupec_data["auta"][auto] = kupec_data["auta"].get(auto, 0) + 1
+            # Prepare updates for seller
+            seller_updates = {
+                "hotovost": prodavajici_data["hotovost"] + cena,
+                "penize": prodavajici_data["hotovost"] + cena + prodavajici_data["bank"]
+            }
+            seller_unsets = {}
 
-            remaining_to_remove = cena
-            if kupec_data["hotovost"] >= remaining_to_remove:
-                kupec_data["hotovost"] -= remaining_to_remove
+            if prodavajici_data["auta"][auto] == 1:
+                seller_unsets[f"auta.{auto}"] = ""
             else:
-                remaining_to_remove -= kupec_data["hotovost"]
-                kupec_data["hotovost"] = 0
-                kupec_data["bank"] -= remaining_to_remove
+                seller_updates[f"auta.{auto}"] = prodavajici_data["auta"][auto] - 1
 
-            prodavajici_data["hotovost"] += cena
+            # Prepare updates for buyer
+            buyer_updates = {
+                "hotovost": kupec_data["hotovost"] - cena,
+                "penize": kupec_data["hotovost"] - cena + kupec_data["bank"],
+                f"auta.{auto}": kupec_data["auta"].get(auto, 0) + 1
+            }
 
-            kupec_data["penize"] = kupec_data["hotovost"] + kupec_data["bank"]
-            prodavajici_data["penize"] = prodavajici_data["hotovost"] + prodavajici_data["bank"]
+            # Update MongoDB
+            seller_operations = {"$set": seller_updates}
+            if seller_unsets:
+                seller_operations["$unset"] = seller_unsets
 
-            
+            hraci.update_one({"user_id": str(interaction.user.id)}, seller_operations)
+            hraci.update_one({"user_id": str(kupec.id)}, {"$set": buyer_updates})
+
 
             success_embed = discord.Embed(
                 title="✅ Obchod dokončen!",
@@ -272,7 +314,7 @@ async def setup_trading_commands(tree, bot):
 
     @prodej_auto.autocomplete("auto")
     async def autocomplete_prodej_auto(interaction: discord.Interaction, current: str):
-        
+
         data = get_or_create_user(interaction.user.id)
         auta = data.get("auta", {})
         return [app_commands.Choice(name=a, value=a) for a in auta if current.lower() in a.lower()][:25]
@@ -291,7 +333,7 @@ async def setup_trading_commands(tree, bot):
             await interaction.response.send_message("❌ Nemůžeš prodávat sám sobě.", ephemeral=True)
             return
 
-        
+
         data_prodejce = get_or_create_user(prodavajici.id)
         data_kupce = get_or_create_user(cil.id)
 
@@ -347,31 +389,44 @@ async def setup_trading_commands(tree, bot):
             await interaction.edit_original_response(content="❌ Kupující nemá dost peněz.", embed=None, view=None)
             return
 
-        if vec in data_prodejce.get("veci", {}):
-            data_prodejce["veci"][vec] -= mnozstvi
-            if data_prodejce["veci"][vec] <= 0:
-                del data_prodejce["veci"][vec]
-            data_kupce.setdefault("veci", {})[vec] = data_kupce["veci"].get(vec, 0) + mnozstvi
+        # Check if the item is a drug or a regular item
+        je_droga = vec in data_prodejce.get("drogy", {})
+
+        # Prepare updates for seller
+        seller_updates = {"hotovost": data_prodejce["hotovost"] + cena}
+        seller_updates["penize"] = seller_updates["hotovost"] + data_prodejce["bank"]
+        seller_unsets = {}
+
+        if je_droga:
+            if data_prodejce["drogy"][vec] == mnozstvi:
+                seller_unsets[f"drogy.{vec}"] = ""
+            else:
+                seller_updates[f"drogy.{vec}"] = data_prodejce["drogy"][vec] - mnozstvi
         else:
-            data_prodejce["drogy"][vec] -= mnozstvi
-            if data_prodejce["drogy"][vec] <= 0:
-                del data_prodejce["drogy"][vec]
-            data_kupce.setdefault("drogy", {})[vec] = data_kupce["drogy"].get(vec, 0) + mnozstvi
+            if data_prodejce["veci"][vec] == mnozstvi:
+                seller_unsets[f"veci.{vec}"] = ""
+            else:
+                seller_updates[f"veci.{vec}"] = data_prodejce["veci"][vec] - mnozstvi
 
-        data_prodejce["hotovost"] += cena
+        # Prepare updates for buyer
+        buyer_updates = {
+            "hotovost": data_kupce["hotovost"] - cena,
+            "penize": data_kupce["hotovost"] - cena + data_kupce["bank"]
+        }
 
-        remaining_to_remove = cena
-        if data_kupce["hotovost"] >= remaining_to_remove:
-            data_kupce["hotovost"] -= remaining_to_remove
+        if je_droga:
+            buyer_updates[f"drogy.{vec}"] = data_kupce["drogy"].get(vec, 0) + mnozstvi
         else:
-            remaining_to_remove -= data_kupce["hotovost"]
-            data_kupce["hotovost"] = 0
-            data_kupce["bank"] -= remaining_to_remove
+            buyer_updates[f"veci.{vec}"] = data_kupce["veci"].get(vec, 0) + mnozstvi
 
-        data_prodejce["penize"] = data_prodejce["hotovost"] + data_prodejce["bank"]
-        data_kupce["penize"] = data_kupce["hotovost"] + data_kupce["bank"]
+        # Update MongoDB
+        seller_operations = {"$set": seller_updates}
+        if seller_unsets:
+            seller_operations["$unset"] = seller_unsets
 
-        
+        hraci.update_one({"user_id": str(prodavajici.id)}, seller_operations)
+        hraci.update_one({"user_id": str(cil.id)}, {"$set": buyer_updates})
+
 
         await interaction.edit_original_response(
             content=f"✅ {cil.mention} koupil {mnozstvi}x `{vec}` za {cena:,}$ od {prodavajici.mention}.",

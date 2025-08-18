@@ -1,11 +1,10 @@
-
 import datetime
 import discord
 from discord import app_commands
 import asyncio
 import random
 from data_config import RECEPTY, VYROBA_COOLDOWN, DROGY_SEZNAM, UCINKY_DROG, VECI_SEZNAM
-from utils import get_or_create_user, is_admin, has_permission
+from utils import get_or_create_user, is_admin, has_permission, hraci
 
 async def setup_drug_commands(tree, bot):
 
@@ -36,7 +35,7 @@ async def setup_drug_commands(tree, bot):
     @app_commands.autocomplete(droga=autocomplete_drogy)
     async def vyrob(interaction: discord.Interaction, droga: str, mnozstvi: int = 10):
         uzivatel = interaction.user
-        
+
         data = get_or_create_user(uzivatel.id)
 
         if mnozstvi % 10 != 0 or mnozstvi <= 0:
@@ -64,10 +63,34 @@ async def setup_drug_commands(tree, bot):
             if veci.get(nastroj, 0) < pocet:
                 return await interaction.response.send_message(f"❌ Chybí ti nástroj `{nastroj}`.", ephemeral=True)
 
-        for surovina, pocet in recept["suroviny"].items():
-            veci[surovina] -= pocet * davky
-            if veci[surovina] <= 0:
-                veci.pop(surovina)
+        # Prepare updates for MongoDB
+        update_dict = {}
+
+        # Spotřeba surovin
+        for surovina, mnozstvi_potreba in recept.get("suroviny", {}).items():
+            new_amount = veci.get(surovina, 0) - (mnozstvi_potreba * davky)
+            if new_amount <= 0:
+                update_dict[f"veci.{surovina}"] = {"$unset": ""}
+            else:
+                update_dict[f"veci.{surovina}"] = new_amount
+
+        # Přidání dokončené drogy
+        new_drug_amount = drogy.get(droga, 0) + mnozstvi
+        update_dict[f"drogy.{droga}"] = new_drug_amount
+
+        # Update in MongoDB
+        set_updates = {k: v for k, v in update_dict.items() if not isinstance(v, dict)}
+        unset_updates = {k: "" for k, v in update_dict.items() if isinstance(v, dict) and "$unset" in v}
+
+        update_operations = {}
+        if set_updates:
+            update_operations["$set"] = set_updates
+        if unset_updates:
+            update_operations["$unset"] = unset_updates
+
+        if update_operations:
+            hraci.update_one({"user_id": str(uzivatel.id)}, update_operations)
+
         data["last_vyroba"] = nyni.isoformat()
         celkovy_cas = recept["cas"] * davky
         await interaction.response.send_message(
@@ -82,16 +105,13 @@ async def setup_drug_commands(tree, bot):
                         veci[nastroj] -= pocet
                         if veci[nastroj] <= 0:
                             veci.pop(nastroj)
-                
+
                 try:
                     await uzivatel.send(f"❌ Výroba {mnozstvi}g `{droga}` selhala. Přišel jsi o suroviny i nástroje.")
                 except:
                     pass
                 return
 
-            drogy[droga] = drogy.get(droga, 0) + mnozstvi
-            data["drogy"] = drogy
-            
             try:
                 await uzivatel.send(f"✅ Výroba dokončena: {mnozstvi}g `{droga}` bylo přidáno do inventáře.")
             except:
@@ -107,7 +127,7 @@ async def setup_drug_commands(tree, bot):
     @app_commands.autocomplete(droga=autocomplete_drogy_ve_inventari)
     async def pozij_drogu(interaction: discord.Interaction, droga: str, mnozstvi: str):
         uzivatel = interaction.user
-        
+
         data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
 
@@ -158,11 +178,18 @@ async def setup_drug_commands(tree, bot):
         else:
             extra = ""
 
-        drogy[droga] -= mnozstvi_g
-        if drogy[droga] <= 0:
-            del drogy[droga]
-        data["drogy"] = drogy
-        
+        # Odebrání drogy z inventáře
+        if data["drogy"][droga] == mnozstvi_g:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$unset": {f"drogy.{droga}": ""}}
+            )
+        else:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {f"drogy.{droga}": data["drogy"][droga] - mnozstvi_g}}
+            )
+
 
         embed = discord.Embed(
             title=f"💊 {droga} použita",
@@ -212,12 +239,16 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        
+
         data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         veci[vec] = veci.get(vec, 0) + mnozstvi
         data["veci"] = veci
-        
+
+        hraci.update_one(
+            {"user_id": str(uzivatel.id)},
+            {"$set": {f"veci.{vec}": veci[vec]}}
+        )
 
         await interaction.response.send_message(f"✅ Přidáno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -229,12 +260,16 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        
+
         data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         drogy[droga] = drogy.get(droga, 0) + mnozstvi
         data["drogy"] = drogy
-        
+
+        hraci.update_one(
+            {"user_id": str(uzivatel.id)},
+            {"$set": {f"drogy.{droga}": drogy[droga]}}
+        )
 
         await interaction.response.send_message(f"✅ Přidáno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -250,7 +285,7 @@ async def setup_drug_commands(tree, bot):
         if not uzivatel:
             return []
 
-        
+
         data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         return [
@@ -270,7 +305,7 @@ async def setup_drug_commands(tree, bot):
         if not uzivatel:
             return []
 
-        
+
         data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         return [
@@ -286,18 +321,23 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        
+
         data = get_or_create_user(uzivatel.id)
         veci = data.get("veci", {})
         if vec not in veci or veci[vec] < mnozstvi:
             await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}× `{vec}`.", ephemeral=True)
             return
 
-        veci[vec] -= mnozstvi
-        if veci[vec] <= 0:
-            del veci[vec]
-        data["veci"] = veci
-        
+        if veci[vec] <= mnozstvi:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$unset": {f"veci.{vec}": ""}}
+            )
+        else:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {f"veci.{vec}": veci[vec] - mnozstvi}}
+            )
 
         await interaction.response.send_message(f"✅ Odebráno {mnozstvi}× `{vec}` uživateli {uzivatel.display_name}.", ephemeral=True)
 
@@ -309,17 +349,22 @@ async def setup_drug_commands(tree, bot):
             await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
             return
 
-        
+
         data = get_or_create_user(uzivatel.id)
         drogy = data.get("drogy", {})
         if droga not in drogy or drogy[droga] < mnozstvi:
             await interaction.response.send_message(f"❌ Uživateli {uzivatel.display_name} chybí {mnozstvi}g `{droga}`.", ephemeral=True)
             return
 
-        drogy[droga] -= mnozstvi
-        if drogy[droga] <= 0:
-            del drogy[droga]
-        data["drogy"] = drogy
-        
+        if drogy[droga] <= mnozstvi:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$unset": {f"drogy.{droga}": ""}}
+            )
+        else:
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {f"drogy.{droga}": drogy[droga] - mnozstvi}}
+            )
 
         await interaction.response.send_message(f"✅ Odebráno {mnozstvi}g `{droga}` uživateli {uzivatel.display_name}.", ephemeral=True)

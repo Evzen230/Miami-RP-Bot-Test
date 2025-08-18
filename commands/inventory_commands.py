@@ -1,11 +1,10 @@
-
 import discord
 from discord import app_commands
 from data_config import DOSTUPNE_ZBRANE, DOSTUPNA_AUTA
-from utils import get_or_create_user, is_admin
+from utils import get_or_create_user, is_admin, hraci
 
 async def setup_inventory_commands(tree, bot):
-    
+
     @tree.command(name="pridej-zbran", description="Přidá zbraň hráči (admin)")
     @app_commands.describe(uzivatel="Uživatel, kterému přidáš zbraň",
                                zbran="Zbraň, kterou chceš přidat",
@@ -23,13 +22,18 @@ async def setup_inventory_commands(tree, bot):
                     f"❌ Zbraň `{zbran}` není v seznamu dostupných zbraní.",
                     ephemeral=True)
                 return
-            
+
             data = get_or_create_user(uzivatel.id)
             if zbran in data["zbrane"]:
-                data["zbrane"][zbran] += pocet
+                new_count = data["zbrane"][zbran] + pocet
             else:
-                data["zbrane"][zbran] = pocet
-            
+                new_count = pocet
+
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {f"zbrane.{zbran}": new_count}}
+            )
+
             await interaction.response.send_message(
                 f"✅ Přidáno {pocet}x `{zbran}` hráči {uzivatel.display_name}.")
 
@@ -53,13 +57,20 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            
+
             data = get_or_create_user(uzivatel.id)
             if zbran in data["zbrane"]:
-                data["zbrane"][zbran] -= pocet
-                if data["zbrane"][zbran] <= 0:
-                    del data["zbrane"][zbran]
-                
+                if data["zbrane"][zbran] == pocet:
+                    hraci.update_one(
+                        {"user_id": str(uzivatel.id)},
+                        {"$unset": {f"zbrane.{zbran}": ""}}
+                    )
+                else:
+                    hraci.update_one(
+                        {"user_id": str(uzivatel.id)},
+                        {"$set": {f"zbrane.{zbran}": data["zbrane"][zbran] - pocet}}
+                    )
+
                 await interaction.response.send_message(
                     f"✅ Odebráno {pocet}x `{zbran}` hráči {uzivatel.display_name}."
                 )
@@ -74,7 +85,7 @@ async def setup_inventory_commands(tree, bot):
             uzivatel = interaction.namespace.uzivatel
             if not uzivatel:
                 return []
-            
+
             data = get_or_create_user(uzivatel.id)
             return [
                 app_commands.Choice(name=z, value=z) for z in data["zbrane"]
@@ -97,15 +108,15 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     f"❌ Auto `{auto}` není v seznamu dostupných aut.", ephemeral=True)
                 return
-            
+
             data = get_or_create_user(uzivatel.id)
-            if auto in data["auta"]:
-                data["auta"][auto] += pocet
-            else:
-                data["auta"][auto] = pocet
-            
-            await interaction.response.send_message(
-                f"✅ Přidáno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
+            new_count = data["auta"].get(auto, 0) + pocet
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {f"auta.{auto}": new_count}}
+            )
+
+            await interaction.response.send_message(f"✅ Auto `{auto}` bylo přidáno hráči {uzivatel.display_name}.")
 
     @pridej_auto.autocomplete("auto")
     async def autocomplete_auto_pridat(interaction: discord.Interaction,
@@ -127,15 +138,22 @@ async def setup_inventory_commands(tree, bot):
                 await interaction.response.send_message(
                     "❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            
+
             data = get_or_create_user(uzivatel.id)
             if auto in data["auta"]:
-                data["auta"][auto] -= pocet
-                if data["auta"][auto] <= 0:
-                    del data["auta"][auto]
-                
+                if data["auta"][auto] == 1:
+                    hraci.update_one(
+                        {"user_id": str(uzivatel.id)},
+                        {"$unset": {f"auta.{auto}": ""}}
+                    )
+                else:
+                    hraci.update_one(
+                        {"user_id": str(uzivatel.id)},
+                        {"$set": {f"auta.{auto}": data["auta"][auto] - 1}}
+                    )
+
                 await interaction.response.send_message(
-                    f"✅ Odebráno {pocet}x `{auto}` hráči {uzivatel.display_name}.")
+                    f"✅ Auto `{auto}` bylo odebráno hráči {uzivatel.display_name}.")
             else:
                 await interaction.response.send_message(
                     f"❌ Auto `{auto}` nebylo nalezeno u {uzivatel.display_name}.")
@@ -146,7 +164,7 @@ async def setup_inventory_commands(tree, bot):
             uzivatel = interaction.namespace.uzivatel
             if not uzivatel:
                 return []
-            
+
             data = get_or_create_user(uzivatel.id)
             return [
                 app_commands.Choice(name=a, value=a) for a in data["auta"]
@@ -157,7 +175,7 @@ async def setup_inventory_commands(tree, bot):
     @app_commands.describe(uzivatel="Uživatel, jehož inventář chceš zobrazit")
     async def inventory(interaction: discord.Interaction, uzivatel: discord.Member = None):
             uzivatel = uzivatel or interaction.user
-            
+
             data = get_or_create_user(uzivatel.id)
 
             auta = data.get("auta", {})
@@ -189,11 +207,11 @@ async def setup_inventory_commands(tree, bot):
             if not is_admin(interaction.user):
                 await interaction.response.send_message("❌ Nemáš oprávnění použít tento příkaz.", ephemeral=True)
                 return
-            
-            data = get_or_create_user(uzivatel.id)
-            data["auta"] = {}
-            data["zbrane"] = {}
-            data["veci"] = {}
-            data["drogy"] = {}
-            
-            await interaction.response.send_message(f"♻️ Inventář hráče {uzivatel.display_name} byl úspěšně resetován.")
+
+            # Update in MongoDB
+            hraci.update_one(
+                {"user_id": str(uzivatel.id)},
+                {"$set": {"auta": {}, "zbrane": {}, "veci": {}, "drogy": {}}}
+            )
+
+            await interaction.response.send_message(f"♻️ Inventář hráče {uzivatel.display_name} byl resetován.")

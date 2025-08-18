@@ -83,7 +83,17 @@ async def setup_money_commands(tree, bot):
                     data["bank"] = 0
 
         data["penize"] = data["hotovost"] + data["bank"]
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(uzivatel.id)},
+            {"$set": {
+                "hotovost": data["hotovost"],
+                "bank": data["bank"],
+                "penize": data["penize"]
+            }}
+        )
         await interaction.response.send_message(f"✅ Odebráno {actual_castka}$ hráči {uzivatel.display_name}.")
+
 
     # --- RESET PENIZE ---
     @tree.command(name="reset-penize", description="Resetuje peníze hráče (admin)")
@@ -132,6 +142,25 @@ async def setup_money_commands(tree, bot):
         odesilatel_data["penize"] = odesilatel_data["hotovost"] + odesilatel_data["bank"]
         prijemce_data["penize"] = prijemce_data["hotovost"] + prijemce_data["bank"]
 
+        # Update in MongoDB for sender
+        hraci.update_one(
+            {"user_id": str(interaction.user.id)},
+            {"$set": {
+                "hotovost": odesilatel_data["hotovost"],
+                "bank": odesilatel_data["bank"],
+                "penize": odesilatel_data["penize"]
+            }}
+        )
+        # Update in MongoDB for receiver
+        hraci.update_one(
+            {"user_id": str(cil.id)},
+            {"$set": {
+                "hotovost": prijemce_data["hotovost"],
+                "bank": prijemce_data["bank"],
+                "penize": prijemce_data["penize"]
+            }}
+        )
+
         await interaction.response.send_message(f"💸 Poslal jsi {castka}$ hráči {cil.display_name}.")
     # --- VYBRAT ---
     @tree.command(name="vybrat", description="Vybere peníze z banky do peněženky")
@@ -160,6 +189,15 @@ async def setup_money_commands(tree, bot):
             data["bank"] -= actual_castka
             data["hotovost"] += actual_castka
         data["penize"] = data["hotovost"] + data["bank"]
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(interaction.user.id)},
+            {"$set": {
+                "bank": data["bank"],
+                "hotovost": data["hotovost"],
+                "penize": data["penize"]
+            }}
+        )
         await interaction.response.send_message(f"✅ Vybral jsi {actual_castka:,} $ z banky do peněženky.")
 
     # --- VLOZIT ---
@@ -189,6 +227,15 @@ async def setup_money_commands(tree, bot):
             data["hotovost"] -= actual_castka
             data["bank"] += actual_castka
         data["penize"] = data["hotovost"] + data["bank"]
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(interaction.user.id)},
+            {"$set": {
+                "hotovost": data["hotovost"],
+                "bank": data["bank"],
+                "penize": data["penize"]
+            }}
+        )
         await interaction.response.send_message(f"✅ Vložil jsi {actual_castka:,} $ z peněženky do banky.")
 
     # --- COLLECT ---
@@ -219,6 +266,15 @@ async def setup_money_commands(tree, bot):
             vyplacene_role.append((role_id, castka))
             data["collect_timestamps"][str(role_id)] = now.isoformat()
         data["hotovost"] = data.get("hotovost", 0) + vyplaceno
+        # Update in MongoDB
+        hraci.update_one(
+            {"user_id": str(interaction.user.id)},
+            {"$set": {
+                "hotovost": data["hotovost"],
+                "penize": data["hotovost"] + data["bank"],
+                f"collect_timestamps.{role_id}": now.isoformat()
+            }}
+        )
         embed = discord.Embed(
             title="💰 Týdenní výplata",
             color=discord.Color.green()
