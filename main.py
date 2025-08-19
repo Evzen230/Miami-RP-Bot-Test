@@ -16,8 +16,10 @@ from commands.money_commands import setup_money_commands
 from commands.trading_commands import setup_trading_commands
 from commands.drug_commands import setup_drug_commands
 from commands.vehicle_commands import setup_vehicle_commands
+from keep_alive import keep_alive
 # from commands.casino_commands import casino_setup
 
+keep_alive()
 
 TOKEN = os.environ['DISCORD_BOT_TOKEN']
 intents = discord.Intents.default()
