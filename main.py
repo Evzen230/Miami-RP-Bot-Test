@@ -19,7 +19,7 @@ from commands.vehicle_commands import setup_vehicle_commands
 # from commands.casino_commands import casino_setup
 
 
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+TOKEN = os.environ['DISCORD_BOT_TOKEN']
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True

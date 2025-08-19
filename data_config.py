@@ -417,7 +417,7 @@ VECI_SEZNAM = list(CENY_VECI.keys())
 DROGY_SEZNAM = ["Marihuana", "Kokain", "Metamfetamin", "Pervitin", "Extáze", "Heroin"]
 
 # Configuration constants
-ADMIN_ROLE_ID = 1378111107780313209
+ADMIN_ROLE_ID = 1356305712531243048
 POLICE_ROLE_ID = 1378711315119607808
 LOG_CHANNEL_ID = 1293617189055758433
 DATA_FILE = "data.json"

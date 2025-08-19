@@ -6,23 +6,23 @@ from pymongo import MongoClient
 from datetime import datetime
 
 # MongoDB připojení
-MONGO_URI = "mongodb+srv://Miami_RP_BOT_TEST:SBkruridCJ1pxIqW@miamirp.y7b8j.mongodb.net/?retryWrites=true&w=majority&appName=MiamiRP"
+MONGO_URI = "mongodb+srv://Miami_RP_BOT:txHJ7gp9aAe8urpm@miamirp.y7b8j.mongodb.net/?retryWrites=true&w=majority&appName=MiamiRP"
 client = MongoClient(MONGO_URI)
-db = client["miamirpbot_test"]
+db = client["miamirpbot"]
 hraci = db["hraci"]
 
 
 def get_or_create_user(user_id: int):
     user_id = str(user_id)
 
-    user = hraci.find_one({"user_id": user_id})
+    user = hraci.find_one({"_id": user_id})
     if not user:
         user = {
-            "user_id": user_id,
+            "_id": user_id,
             "auta": {},
             "zbrane": {},
             "penize": 0,
-            "hotovost": 1000,
+            "hotovost": 4000,
             "bank": 0,
             "last_collect": None,
             "collect_timestamps": {},
